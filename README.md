@@ -16,6 +16,11 @@ npm run dev      # http://localhost:5173
 npm run build    # genera dist/ estático (se puede subir a Netlify, Vercel, GitHub Pages…)
 ```
 
+**Demo en vivo:** https://danieldavb.github.io/3D-Agents/
+
+Cada push a la rama principal vuelve a publicar el sitio (workflow `.github/workflows/pages.yml`, que
+compila con Vite y sube `dist/` a la rama `gh-pages`).
+
 ## Qué puedes hacer
 
 - **Ver la organización en 3D**: arrastra para rotar, rueda para hacer zoom, clic en una oficina o agente para enfocarlo.
