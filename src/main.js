@@ -95,13 +95,16 @@ function renderDetails() {
     const ready = canCallLive(a);
     box.innerHTML = `
       <button class="icon-btn close" data-act="close">✕</button>
+      <span class="pill"><i style="width:7px;height:7px;border-radius:50%;background:${p.color}"></i>${p.label}</span>
+      ${a.live ? `<span class="pill light">${ready ? 'Live' : 'Live · sin configurar'}</span>` : ''}
       <h3>${esc(a.name)}</h3>
       <div class="sub">${esc(a.role || 'Sin descripción')}</div>
-      <span class="badge" style="--c:${p.color}">${p.label}</span>
-      ${a.live ? `<span class="badge live">${ready ? 'live' : 'live · sin configurar'}</span>` : ''}
+      <div class="stats">
+        <div class="stat"><b>${st.sent}</b><span>Enviados</span></div>
+        <div class="stat"><b>${st.received}</b><span>Recibidos</span></div>
+      </div>
       <dl class="kv">
         <dt>Oficina</dt><dd>${esc(office?.name || '-')}</dd>
-        <dt>Mensajes</dt><dd>${st.sent} enviados · ${st.received} recibidos</dd>
         ${conf || '<dt>Config</dt><dd>— (modo demo)</dd>'}
       </dl>
       <textarea id="msgText" placeholder="Escribe una instrucción para ${esc(a.name)}…"></textarea>
@@ -110,7 +113,7 @@ function renderDetails() {
         <button class="btn" data-act="edit">Editar</button>
         <button class="btn danger" data-act="delete">Eliminar</button>
       </div>
-      <p class="hint" style="font-size:11px;color:var(--muted)">${
+      <p class="hint">${
         a.live && ready ? 'Modo real activo: se llamará a la API y la respuesta aparecerá en Actividad.' : 'Modo demo: la respuesta es simulada. Activa “Modo real” en Editar para conectar la API.'
       }</p>`;
   } else {
@@ -120,8 +123,13 @@ function renderDetails() {
     const isRoot = !o.parentId;
     box.innerHTML = `
       <button class="icon-btn close" data-act="close">✕</button>
-      <h3><span class="dot" style="width:12px;height:12px;border-radius:4px;background:${o.color};display:inline-block"></span>${esc(o.name)}</h3>
-      <div class="sub">${isRoot ? 'Oficina principal' : `Depende de ${esc(parent?.name || '-')}`} · ${agents.length} agentes · ${store.children(o.id).length} sub-oficinas</div>
+      <span class="pill"><i style="width:7px;height:7px;border-radius:50%;background:${o.color}"></i>${isRoot ? 'Oficina principal' : 'Oficina'}</span>
+      <h3>${esc(o.name)}</h3>
+      <div class="sub">${isRoot ? 'Centro de mando' : `Depende de ${esc(parent?.name || '-')}`}</div>
+      <div class="stats">
+        <div class="stat"><b>${agents.length}</b><span>Agentes</span></div>
+        <div class="stat"><b>${store.children(o.id).length}</b><span>Sub-oficinas</span></div>
+      </div>
       <div class="agents-mini">
         ${agents.map((a) => `<button class="btn" data-agent="${a.id}"><span style="color:${provider(a.provider).color}">●</span> ${esc(a.name)} <small style="color:var(--muted)">· ${provider(a.provider).short}</small></button>`).join('') || '<small style="color:var(--muted)">Sin agentes todavía</small>'}
       </div>
@@ -170,6 +178,17 @@ const officeDialog = $('#officeDialog');
 const officeForm = $('#officeForm');
 let editingOffice = null;
 
+function setSwatch(color) {
+  officeForm.elements.color.value = color;
+  $('#swatches').innerHTML = OFFICE_COLORS.map(
+    (c) => `<button type="button" data-c="${c}" style="background:${c}" class="${c.toLowerCase() === color.toLowerCase() ? 'on' : ''}" title="${c}"></button>`,
+  ).join('');
+}
+$('#swatches').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-c]');
+  if (b) setSwatch(b.dataset.c);
+});
+
 function openOfficeDialog(office, parentId) {
   editingOffice = office;
   const { offices } = store.get();
@@ -186,7 +205,7 @@ function openOfficeDialog(office, parentId) {
   officeForm.elements.parentId.disabled = !!isRoot;
   officeForm.elements.name.value = office?.name || '';
   officeForm.elements.parentId.value = office?.parentId || parentId || store.rootOffice().id;
-  officeForm.elements.color.value = office?.color || OFFICE_COLORS[offices.length % OFFICE_COLORS.length];
+  setSwatch(office?.color || OFFICE_COLORS[offices.length % OFFICE_COLORS.length]);
   officeDialog.returnValue = '';
   officeDialog.showModal();
 }
@@ -311,7 +330,7 @@ $('#importFile').onchange = async (e) => {
   try {
     const data = JSON.parse(await file.text());
     if (!Array.isArray(data.offices) || !Array.isArray(data.agents)) throw new Error('Formato inválido');
-    store.set(data);
+    store.set({ theme: 'naranja', ...data });
     select(null, true);
     log({ kind: 'info', text: `Importado: ${data.offices.length} oficinas, ${data.agents.length} agentes` });
   } catch (err) {

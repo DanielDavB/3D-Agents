@@ -5,17 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>3D Agents · Oficina de automatizaciones</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Carlito:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
     <div id="scene"></div>
+    <div class="orbs" aria-hidden="true"><i></i><i></i><i></i></div>
 
     <header class="topbar">
       <div class="brand">
-        <span class="logo">◆</span>
+        <span class="logo">3D</span>
         <div>
-          <h1>3D Agents</h1>
+          <h1>3D <span>Agents</span></h1>
           <small>Oficina de automatizaciones · demo</small>
         </div>
       </div>
@@ -47,7 +48,7 @@
 
     <aside id="sidebar" class="panel">
       <div class="panel-head">
-        <h2>Organización</h2>
+        <h2 class="pill">Organización</h2>
         <button id="btnToggleSidebar" class="icon-btn" title="Contraer">⟨</button>
       </div>
       <div id="tree"></div>
@@ -58,7 +59,7 @@
       <section id="details" class="panel" hidden></section>
       <section id="feedPanel" class="panel">
         <div class="panel-head">
-          <h2>Actividad <span class="live-dot"></span></h2>
+          <h2 class="pill"><span class="live-dot"></span>Actividad</h2>
           <button id="btnClearFeed" class="icon-btn" title="Limpiar">⌫</button>
         </div>
         <ol id="feed"></ol>
@@ -67,10 +68,11 @@
 
     <dialog id="officeDialog">
       <form method="dialog" id="officeForm">
+        <span class="pill">Oficina</span>
         <h3 id="officeTitle">Nueva oficina</h3>
         <label>Nombre <input name="name" required placeholder="Ej. Finanzas" /></label>
         <label>Depende de <select name="parentId"></select></label>
-        <label>Color <input name="color" type="color" value="#7c9cff" /></label>
+        <div class="field">Color <div id="swatches" class="swatches"></div><input name="color" type="hidden" value="#e8600c" /></div>
         <menu>
           <button value="cancel" formnovalidate class="btn">Cancelar</button>
           <button value="ok" class="btn accent">Guardar</button>
@@ -80,6 +82,7 @@
 
     <dialog id="agentDialog">
       <form method="dialog" id="agentForm">
+        <span class="pill">Agente</span>
         <h3 id="agentTitle">Nuevo agente</h3>
         <div class="grid2">
           <label>Nombre <input name="name" required placeholder="Ej. Copywriter" /></label>

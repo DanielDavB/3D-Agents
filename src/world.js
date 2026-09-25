@@ -58,8 +58,8 @@ export function createWorld(container, { onSelect } = {}) {
   container.appendChild(labels.domElement);
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color('#070b16');
-  scene.fog = new THREE.Fog('#070b16', 90, 220);
+  scene.background = new THREE.Color('#0d0d0d');
+  scene.fog = new THREE.Fog('#0d0d0d', 90, 220);
 
   const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 500);
   camera.position.set(0, 85, 105);
@@ -79,7 +79,7 @@ export function createWorld(container, { onSelect } = {}) {
   composer.addPass(new OutputPass());
 
   // Luces y suelo
-  scene.add(new THREE.HemisphereLight('#9fb4ff', '#0b0f1c', 1.1));
+  scene.add(new THREE.HemisphereLight('#ffffff', '#0d0d0d', 1.0));
   const sun = new THREE.DirectionalLight('#ffffff', 1.4);
   sun.position.set(40, 80, 30);
   sun.castShadow = true;
@@ -89,12 +89,12 @@ export function createWorld(container, { onSelect } = {}) {
 
   const floor = new THREE.Mesh(
     new THREE.CircleGeometry(260, 64),
-    new THREE.MeshStandardMaterial({ color: '#0c1224', roughness: 0.95 }),
+    new THREE.MeshStandardMaterial({ color: '#111111', roughness: 0.95 }),
   );
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
   scene.add(floor);
-  const grid = new THREE.GridHelper(400, 100, '#1b2a55', '#111a33');
+  const grid = new THREE.GridHelper(400, 100, '#2a2a2a', '#1a1a1a');
   grid.position.y = 0.01;
   scene.add(grid);
 
@@ -130,14 +130,14 @@ export function createWorld(container, { onSelect } = {}) {
     const rows = Math.max(1, Math.ceil(n / cols));
     const size = Math.max(isRoot ? 18 : 12, cols * 6 + 5);
     const depthSize = Math.max(isRoot ? 18 : 12, rows * 5.5 + 5);
-    const color = new THREE.Color(office.color || '#7c9cff');
+    const color = new THREE.Color(office.color || '#e8600c');
 
     // Mira hacia el centro del mapa para que la pared trasera quede afuera
     if (!isRoot) g.rotation.y = -p.angle - Math.PI / 2;
 
     const base = new THREE.Mesh(
       new THREE.BoxGeometry(size, 0.4, depthSize),
-      new THREE.MeshStandardMaterial({ color: '#1a2340', roughness: 0.6, metalness: 0.2 }),
+      new THREE.MeshStandardMaterial({ color: '#161616', roughness: 0.6, metalness: 0.2 }),
     );
     base.position.y = 0.2;
     base.receiveShadow = true;
@@ -184,7 +184,7 @@ export function createWorld(container, { onSelect } = {}) {
     g.add(beam);
 
     if (isRoot) {
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(4.5, 0.06, 8, 64), new THREE.MeshBasicMaterial({ color: '#9fb4ff' }));
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(4.5, 0.06, 8, 64), new THREE.MeshBasicMaterial({ color: '#e8600c' }));
       ring.rotation.x = Math.PI / 2;
       ring.position.y = HUB_Y;
       ring.userData.spin = 0.4;
@@ -225,7 +225,7 @@ export function createWorld(container, { onSelect } = {}) {
 
     const desk = new THREE.Mesh(
       new THREE.BoxGeometry(2.4, 0.9, 1.2),
-      new THREE.MeshStandardMaterial({ color: '#2b3558', roughness: 0.5 }),
+      new THREE.MeshStandardMaterial({ color: '#2a2a2a', roughness: 0.5 }),
     );
     desk.position.set(0, 0.45, -0.9);
     desk.castShadow = true;
@@ -245,13 +245,13 @@ export function createWorld(container, { onSelect } = {}) {
 
     const head = new THREE.Mesh(
       new THREE.SphereGeometry(0.36, 20, 16),
-      new THREE.MeshStandardMaterial({ color: '#f1f4ff', roughness: 0.3 }),
+      new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.3 }),
     );
     head.position.set(0, 1.85, 0.35);
     head.castShadow = true;
     g.add(head);
 
-    const visor = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.12, 0.1), new THREE.MeshBasicMaterial({ color: '#0b1020' }));
+    const visor = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.12, 0.1), new THREE.MeshBasicMaterial({ color: '#0d0d0d' }));
     visor.position.set(0, 1.88, 0.05);
     g.add(visor);
 
@@ -419,7 +419,7 @@ export function createWorld(container, { onSelect } = {}) {
     }
     const curve = buildCurve(pts);
     const c = new THREE.Color(color);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(size, 16, 12), new THREE.MeshBasicMaterial({ color: c.clone().multiplyScalar(1.6) }));
+    const head = new THREE.Mesh(new THREE.SphereGeometry(size, 16, 12), new THREE.MeshBasicMaterial({ color: c.clone().multiplyScalar(2.2) }));
     const trail = [];
     for (let i = 1; i <= 8; i++) {
       const m = new THREE.Mesh(

@@ -4,6 +4,7 @@
 //  - send(agent, message): llamada real (solo se usa si el agente tiene "live" activado)
 //
 // En modo demo nunca se llama a send(); la simulación genera respuestas falsas.
+// Los colores siguen la paleta de marca (naranja / blanco / grises).
 
 async function postJson(url, body, headers = {}) {
   if (!url) throw new Error('Falta la URL del endpoint');
@@ -35,7 +36,7 @@ export const PROVIDERS = {
   claude: {
     label: 'Claude API',
     short: 'Claude',
-    color: '#d97757',
+    color: '#e8600c',
     fields: [
       { key: 'apiKey', label: 'API key de Anthropic', type: 'password', placeholder: 'sk-ant-...' },
       { key: 'model', label: 'Modelo', type: 'text', placeholder: 'claude-sonnet-5', default: 'claude-sonnet-5' },
@@ -67,7 +68,7 @@ export const PROVIDERS = {
   n8n: {
     label: 'n8n (webhook)',
     short: 'n8n',
-    color: '#ea4b71',
+    color: '#ffffff',
     fields: [
       { key: 'url', label: 'URL del Webhook', type: 'text', placeholder: 'https://tu-n8n.com/webhook/...' },
       { key: 'token', label: 'Header Authorization (opcional)', type: 'password', placeholder: 'Bearer ...' },
@@ -80,7 +81,7 @@ export const PROVIDERS = {
   make: {
     label: 'Make (webhook)',
     short: 'Make',
-    color: '#a259ff',
+    color: '#b8b8b8',
     fields: [{ key: 'url', label: 'URL del Webhook', type: 'text', placeholder: 'https://hook.make.com/...' }],
     send(agent, message) {
       return postJson(agent.config.url, webhookPayload(agent, message));
@@ -89,7 +90,7 @@ export const PROVIDERS = {
   zapier: {
     label: 'Zapier (webhook)',
     short: 'Zapier',
-    color: '#ff6a1f',
+    color: '#fde8dc',
     fields: [{ key: 'url', label: 'URL del Catch Hook', type: 'text', placeholder: 'https://hooks.zapier.com/...' }],
     send(agent, message) {
       return postJson(agent.config.url, webhookPayload(agent, message));
@@ -98,7 +99,7 @@ export const PROVIDERS = {
   openai: {
     label: 'OpenAI API',
     short: 'OpenAI',
-    color: '#10a37f',
+    color: '#757575',
     fields: [
       { key: 'apiKey', label: 'API key', type: 'password', placeholder: 'sk-...' },
       { key: 'model', label: 'Modelo', type: 'text', placeholder: 'gpt-4o-mini' },
@@ -121,7 +122,7 @@ export const PROVIDERS = {
   webhook: {
     label: 'HTTP / API genérica',
     short: 'API',
-    color: '#3fa9f5',
+    color: '#ff9a52',
     fields: [
       { key: 'url', label: 'Endpoint (POST)', type: 'text', placeholder: 'https://api.midominio.com/agent' },
       { key: 'token', label: 'Header Authorization (opcional)', type: 'password', placeholder: 'Bearer ...' },

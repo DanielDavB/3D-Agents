@@ -46,6 +46,14 @@ Notas:
 - El webhook de n8n debe permitir CORS desde el origen donde sirvas la app (en n8n: *Webhook → Options → Allowed Origins*),
   y conviene usar el nodo **Respond to Webhook** para devolver el texto de la respuesta.
 
+## Identidad visual
+
+Paleta "moderno naranja": negro `#0D0D0D` como base, naranja `#E8600C` como acento (tareas en vuelo,
+oficinas departamentales, botones principales) y blanco `#FFFFFF` (Oficina Principal, respuestas).
+Tipografía Calibri (con Carlito como alternativa web), badges tipo píldora y círculos naranjas translúcidos
+en las esquinas. Los tokens están al inicio de `src/style.css`; los colores de oficinas en `OFFICE_COLORS`
+(`src/state.js`) y los de cada conector en `src/connectors.js`.
+
 ## Estructura
 
 ```

@@ -22,6 +22,10 @@ const REPLIES = [
   'Entregado. ¿Algo más?',
 ];
 
+// Paquetes: tareas en naranja de marca, respuestas en blanco.
+const TASK_COLOR = '#e8600c';
+const REPLY_COLOR = '#ffffff';
+
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 function tasksFor(office) {
@@ -53,7 +57,7 @@ export function createSim({ store, world, log }) {
       stat(fromId).sent++;
       log({ kind: 'task', from: nameOf(fromId), to: nameOf(toId), text, color: colorOf(fromId) });
       world.sendPacket(fromId, toId, {
-        color: colorOf(fromId),
+        color: TASK_COLOR,
         onArrive: async () => {
           stat(toId).received++;
           if (!reply) return resolve(null);
@@ -75,7 +79,7 @@ export function createSim({ store, world, log }) {
           stat(toId).sent++;
           log({ kind, from: target.name, to: nameOf(fromId), text: answer, color: colorOf(toId) });
           world.sendPacket(toId, fromId, {
-            color: kind === 'error' ? '#ff4d4d' : colorOf(toId),
+            color: kind === 'error' ? '#ff5c5c' : REPLY_COLOR,
             size: 0.28,
             onArrive: () => resolve(answer),
           });
