@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>3D Agents · Oficina de automatizaciones</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Carlito:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+    <script type="module" crossorigin src="./assets/index-DADPeCoM.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-BThTV4CL.css">
+  </head>
+  <body>
+    <div id="scene"></div>
+    <div class="orbs" aria-hidden="true"><i></i><i></i><i></i></div>
+
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo">3D</span>
+        <div>
+          <h1>3D <span>Agents</span></h1>
+          <small>Oficina de automatizaciones · demo</small>
+        </div>
+      </div>
+      <div class="controls">
+        <button id="btnPlay" class="btn" title="Tráfico automático entre agentes">⏸ Auto</button>
+        <select id="speed" class="btn" title="Velocidad">
+          <option value="0.5">0.5×</option>
+          <option value="1" selected>1×</option>
+          <option value="2">2×</option>
+          <option value="4">4×</option>
+        </select>
+        <button id="btnCascade" class="btn accent">▶ Flujo: lanzamiento</button>
+        <button id="btnReport" class="btn">📊 Reporte semanal</button>
+        <span class="sep"></span>
+        <button id="btnAddOffice" class="btn">+ Oficina</button>
+        <button id="btnAddAgent" class="btn">+ Agente</button>
+        <details class="menu">
+          <summary class="btn">⋯</summary>
+          <div class="menu-list">
+            <button id="btnOverview">Vista general</button>
+            <button id="btnExport">Exportar JSON</button>
+            <button id="btnImport">Importar JSON</button>
+            <button id="btnReset" class="danger">Restablecer demo</button>
+          </div>
+        </details>
+        <input id="importFile" type="file" accept="application/json" hidden />
+      </div>
+    </header>
+
+    <aside id="sidebar" class="panel">
+      <div class="panel-head">
+        <h2 class="pill">Organización</h2>
+        <button id="btnToggleSidebar" class="icon-btn" title="Contraer">⟨</button>
+      </div>
+      <div id="tree"></div>
+      <div id="legend"></div>
+    </aside>
+
+    <div id="right">
+      <section id="details" class="panel" hidden></section>
+      <section id="feedPanel" class="panel">
+        <div class="panel-head">
+          <h2 class="pill"><span class="live-dot"></span>Actividad</h2>
+          <button id="btnClearFeed" class="icon-btn" title="Limpiar">⌫</button>
+        </div>
+        <ol id="feed"></ol>
+      </section>
+    </div>
+
+    <dialog id="officeDialog">
+      <form method="dialog" id="officeForm">
+        <span class="pill">Oficina</span>
+        <h3 id="officeTitle">Nueva oficina</h3>
+        <label>Nombre <input name="name" required placeholder="Ej. Finanzas" /></label>
+        <label>Depende de <select name="parentId"></select></label>
+        <div class="field">Color <div id="swatches" class="swatches"></div><input name="color" type="hidden" value="#e8600c" /></div>
+        <menu>
+          <button value="cancel" formnovalidate class="btn">Cancelar</button>
+          <button value="ok" class="btn accent">Guardar</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <dialog id="agentDialog">
+      <form method="dialog" id="agentForm">
+        <span class="pill">Agente</span>
+        <h3 id="agentTitle">Nuevo agente</h3>
+        <div class="grid2">
+          <label>Nombre <input name="name" required placeholder="Ej. Copywriter" /></label>
+          <label>Oficina <select name="officeId"></select></label>
+        </div>
+        <label>Rol / descripción <input name="role" placeholder="¿Qué hace este agente?" /></label>
+        <div class="field">Conector
+          <div id="providerPicker" class="provider-picker"></div>
+        </div>
+        <fieldset id="providerFields"></fieldset>
+        <label class="check"><input type="checkbox" name="live" /> Modo real: llamar a la API cuando reciba mensajes manuales</label>
+        <p class="hint">Las credenciales se guardan solo en este navegador (localStorage). Úsalo para demos, no en producción.</p>
+        <menu>
+          <button value="cancel" formnovalidate class="btn">Cancelar</button>
+          <button value="ok" class="btn accent">Guardar</button>
+        </menu>
+      </form>
+    </dialog>
+
+  </body>
+</html>
