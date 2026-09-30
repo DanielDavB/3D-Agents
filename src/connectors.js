@@ -1,36 +1,19 @@
 // Catálogo de conectores. Cada proveedor define:
-//  - label / color: cómo se ve en la escena y en la UI
+//  - label / short / color: cómo se ve en la escena y en la UI (paleta de marca)
 //  - fields: campos de configuración que pide el formulario del agente
-//  - send(agent, message): llamada real (solo se usa si el agente tiene "live" activado)
-//
-// En modo demo nunca se llama a send(); la simulación genera respuestas falsas.
-// Los colores siguen la paleta de marca (naranja / blanco / grises).
+// La ejecución real está en src/brain.js (execAgent).
 
-async function postJson(url, body, headers = {}) {
-  if (!url) throw new Error('Falta la URL del endpoint');
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', ...headers },
-    body: JSON.stringify(body),
-  });
-  const text = await res.text();
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${text.slice(0, 200)}`);
-  try {
-    const json = JSON.parse(text);
-    return typeof json === 'string' ? json : JSON.stringify(json);
-  } catch {
-    return text;
-  }
-}
-
-function webhookPayload(agent, message) {
-  return {
-    agent: { id: agent.id, name: agent.name, role: agent.role },
-    from: message.from,
-    text: message.text,
-    sentAt: new Date().toISOString(),
-  };
-}
+const HTTP_FIELDS = (urlLabel, placeholder) => [
+  { key: 'url', label: urlLabel, type: 'text', placeholder },
+  { key: 'method', label: 'Método', type: 'select', options: ['POST', 'GET', 'PUT', 'PATCH', 'DELETE'], default: 'POST' },
+  { key: 'headers', label: 'Cabeceras (JSON, opcional)', type: 'textarea', placeholder: '{"Authorization": "Bearer ..."}' },
+  {
+    key: 'body',
+    label: 'Cuerpo (opcional). Usa {{input}}, {{from}}, {{agent}}',
+    type: 'textarea',
+    placeholder: '{"mensaje": "{{input}}"}  — vacío = JSON estándar con agent/from/text',
+  },
+];
 
 export const PROVIDERS = {
   claude: {
@@ -38,63 +21,28 @@ export const PROVIDERS = {
     short: 'Claude',
     color: '#e8600c',
     fields: [
-      { key: 'apiKey', label: 'API key de Anthropic', type: 'password', placeholder: 'sk-ant-...' },
-      { key: 'model', label: 'Modelo', type: 'text', placeholder: 'claude-sonnet-5', default: 'claude-sonnet-5' },
-      { key: 'system', label: 'System prompt', type: 'textarea', placeholder: 'Eres el agente de marketing...' },
+      { key: 'model', label: 'Modelo', type: 'select', options: ['claude-haiku-4-5', 'claude-sonnet-5-5'], default: 'claude-haiku-4-5' },
+      { key: 'system', label: 'Instrucciones del agente (system prompt)', type: 'textarea', placeholder: 'Eres el agente de marketing. Escribes copies cortos y directos…' },
+      { key: 'apiKey', label: 'API key propia (opcional: si no, usa la del cerebro)', type: 'password', placeholder: 'sk-ant-...' },
     ],
-    async send(agent, message) {
-      const { apiKey, model, system } = agent.config;
-      if (!apiKey) throw new Error('Falta la API key');
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
-        body: JSON.stringify({
-          model: model || 'claude-sonnet-5',
-          max_tokens: 512,
-          system: system || `Eres "${agent.name}", ${agent.role}. Responde breve.`,
-          messages: [{ role: 'user', content: message.text }],
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error?.message || `HTTP ${res.status}`);
-      return json.content.filter((b) => b.type === 'text').map((b) => b.text).join('\n');
-    },
   },
   n8n: {
     label: 'n8n (webhook)',
     short: 'n8n',
     color: '#ffffff',
-    fields: [
-      { key: 'url', label: 'URL del Webhook', type: 'text', placeholder: 'https://tu-n8n.com/webhook/...' },
-      { key: 'token', label: 'Header Authorization (opcional)', type: 'password', placeholder: 'Bearer ...' },
-    ],
-    send(agent, message) {
-      const { url, token } = agent.config;
-      return postJson(url, webhookPayload(agent, message), token ? { authorization: token } : {});
-    },
+    fields: HTTP_FIELDS('URL del Webhook de n8n', 'https://tu-n8n.com/webhook/...'),
   },
   make: {
     label: 'Make (webhook)',
     short: 'Make',
     color: '#b8b8b8',
-    fields: [{ key: 'url', label: 'URL del Webhook', type: 'text', placeholder: 'https://hook.make.com/...' }],
-    send(agent, message) {
-      return postJson(agent.config.url, webhookPayload(agent, message));
-    },
+    fields: HTTP_FIELDS('URL del Webhook', 'https://hook.make.com/...'),
   },
   zapier: {
     label: 'Zapier (webhook)',
     short: 'Zapier',
     color: '#fde8dc',
-    fields: [{ key: 'url', label: 'URL del Catch Hook', type: 'text', placeholder: 'https://hooks.zapier.com/...' }],
-    send(agent, message) {
-      return postJson(agent.config.url, webhookPayload(agent, message));
-    },
+    fields: HTTP_FIELDS('URL del Catch Hook', 'https://hooks.zapier.com/...'),
   },
   openai: {
     label: 'OpenAI API',
@@ -103,34 +51,14 @@ export const PROVIDERS = {
     fields: [
       { key: 'apiKey', label: 'API key', type: 'password', placeholder: 'sk-...' },
       { key: 'model', label: 'Modelo', type: 'text', placeholder: 'gpt-4o-mini' },
+      { key: 'system', label: 'Instrucciones del agente', type: 'textarea', placeholder: '' },
     ],
-    async send(agent, message) {
-      const { apiKey, model } = agent.config;
-      if (!apiKey) throw new Error('Falta la API key');
-      const out = await postJson(
-        'https://api.openai.com/v1/chat/completions',
-        { model: model || 'gpt-4o-mini', messages: [{ role: 'user', content: message.text }] },
-        { authorization: `Bearer ${apiKey}` },
-      );
-      try {
-        return JSON.parse(out).choices[0].message.content;
-      } catch {
-        return out;
-      }
-    },
   },
   webhook: {
     label: 'HTTP / API genérica',
     short: 'API',
     color: '#ff9a52',
-    fields: [
-      { key: 'url', label: 'Endpoint (POST)', type: 'text', placeholder: 'https://api.midominio.com/agent' },
-      { key: 'token', label: 'Header Authorization (opcional)', type: 'password', placeholder: 'Bearer ...' },
-    ],
-    send(agent, message) {
-      const { url, token } = agent.config;
-      return postJson(url, webhookPayload(agent, message), token ? { authorization: token } : {});
-    },
+    fields: HTTP_FIELDS('Endpoint', 'https://api.midominio.com/agent  (en GET puedes usar ?q={{input}})'),
   },
 };
 
@@ -138,9 +66,10 @@ export function provider(id) {
   return PROVIDERS[id] || PROVIDERS.webhook;
 }
 
-export function canCallLive(agent) {
-  const p = provider(agent.provider);
+// ¿Tiene una conexión real propia? (si no, la IA simula su rol)
+export function isConnected(agent) {
   const c = agent.config || {};
-  if (agent.provider === 'claude' || agent.provider === 'openai') return !!c.apiKey;
-  return !!c.url && !!p;
+  if (agent.provider === 'claude') return true;
+  if (agent.provider === 'openai') return !!c.apiKey;
+  return !!c.url;
 }

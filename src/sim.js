@@ -1,6 +1,6 @@
-// Simulación de conversaciones entre agentes. En modo demo todo es ficticio;
-// si un agente tiene "live" activado y está configurado, se llama a su conector real.
-import { provider, canCallLive } from './connectors.js';
+// Simulación de conversaciones entre agentes (modo demo, sin llamadas reales).
+// El trabajo real lo hace el cerebro (src/brain.js).
+import { provider } from './connectors.js';
 
 const TASKS = {
   marketing: ['Redacta 3 variantes de copy para la campaña Q4', 'Genera ideas de contenido para la semana', 'Analiza el CTR del último email'],
@@ -40,6 +40,7 @@ export function createSim({ store, world, log }) {
   let acc = 0;
   let nextIn = 1.5;
   const stats = new Map(); // agentId -> { sent, received }
+  let gen = 0; // se incrementa al cancelar: los flujos en curso dejan de emitir mensajes
 
   const stat = (id) => {
     if (!stats.has(id)) stats.set(id, { sent: 0, received: 0 });
@@ -50,9 +51,11 @@ export function createSim({ store, world, log }) {
   const colorOf = (id) => (id === 'user' ? '#ffffff' : provider(store.agent(id)?.provider).color);
 
   // Envía una tarea de A a B, devuelve una promesa con la respuesta.
-  function sendTask(fromId, toId, text, { reply = true, live = true } = {}) {
+  function sendTaskRaw(fromId, toId, text, { reply = true } = {}) {
+    const myGen = gen;
     return new Promise((resolve) => {
       const target = store.agent(toId);
+      if (myGen !== gen) return resolve(null);
       if (!target || (fromId !== 'user' && !store.agent(fromId))) return resolve(null);
       stat(fromId).sent++;
       log({ kind: 'task', from: nameOf(fromId), to: nameOf(toId), text, color: colorOf(fromId) });
@@ -61,25 +64,13 @@ export function createSim({ store, world, log }) {
         onArrive: async () => {
           stat(toId).received++;
           if (!reply) return resolve(null);
-          let answer;
-          let kind = 'reply';
-          if (live && target.live && canCallLive(target)) {
-            log({ kind: 'info', text: `${target.name} llamando a ${provider(target.provider).label}…` });
-            try {
-              answer = await provider(target.provider).send(target, { from: nameOf(fromId), text });
-              kind = 'live';
-            } catch (err) {
-              answer = `Error: ${err.message}`;
-              kind = 'error';
-            }
-          } else {
-            await wait(400 + Math.random() * 900);
-            answer = pick(REPLIES);
-          }
+          await wait(400 + Math.random() * 900);
+          if (myGen !== gen) return resolve(null);
+          const answer = pick(REPLIES);
           stat(toId).sent++;
-          log({ kind, from: target.name, to: nameOf(fromId), text: answer, color: colorOf(toId) });
+          log({ kind: 'reply', from: target.name, to: nameOf(fromId), text: answer, color: colorOf(toId) });
           world.sendPacket(toId, fromId, {
-            color: kind === 'error' ? '#ff5c5c' : REPLY_COLOR,
+            color: REPLY_COLOR,
             size: 0.28,
             onArrive: () => resolve(answer),
           });
@@ -105,32 +96,36 @@ export function createSim({ store, world, log }) {
     if (!candidates.length) candidates = agents.filter((a) => a.id !== from.id);
     const to = pick(candidates);
     const toOffice = offices.find((o) => o.id === to.officeId);
-    sendTask(from.id, to.id, pick(tasksFor(toOffice)), { live: false });
+    sendTaskRaw(from.id, to.id, pick(tasksFor(toOffice)));
   }
 
   // Escenario: el orquestador delega a cada departamento y éstos a su equipo.
   async function cascade() {
+    const g = gen;
+    const sendTask = (...args) => (g === gen ? sendTaskRaw(...args) : Promise.resolve(null));
     const root = store.rootOffice();
     const boss = store.agentsIn(root.id)[0];
     if (!boss) return log({ kind: 'info', text: 'Añade un agente a la Oficina Principal para ejecutar el flujo.' });
     log({ kind: 'info', text: '▶ Flujo "Lanzamiento de producto" iniciado' });
-    await sendTask('user', boss.id, 'Lancemos el nuevo producto este viernes', { live: false });
+    await sendTask('user', boss.id, 'Lancemos el nuevo producto este viernes');
     const depts = store.children(root.id);
     await Promise.all(
       depts.map(async (d, i) => {
         await wait(i * 350);
         const lead = store.agentsIn(d.id)[0];
         if (!lead) return;
-        await sendTask(boss.id, lead.id, pick(tasksFor(d)), { live: false });
+        await sendTask(boss.id, lead.id, pick(tasksFor(d)));
         const team = [...store.agentsIn(d.id).slice(1), ...store.children(d.id).flatMap((c) => store.agentsIn(c.id))];
-        await Promise.all(team.map((m) => sendTask(lead.id, m.id, pick(tasksFor(store.office(m.officeId))), { live: false })));
+        await Promise.all(team.map((m) => sendTask(lead.id, m.id, pick(tasksFor(store.office(m.officeId))))));
       }),
     );
-    log({ kind: 'info', text: '✔ Flujo completado: todos los departamentos reportaron' });
+    if (g === gen) log({ kind: 'info', text: '✔ Flujo completado: todos los departamentos reportaron' });
   }
 
   // Escenario: todos reportan a la oficina principal.
   async function report() {
+    const g = gen;
+    const sendTask = (...args) => (g === gen ? sendTaskRaw(...args) : Promise.resolve(null));
     const root = store.rootOffice();
     const boss = store.agentsIn(root.id)[0];
     if (!boss) return;
@@ -139,17 +134,19 @@ export function createSim({ store, world, log }) {
     await Promise.all(
       others.map(async (a, i) => {
         await wait(i * 180);
-        await sendTask(a.id, boss.id, `Reporte semanal de ${a.name}`, { reply: false, live: false });
+        await sendTask(a.id, boss.id, `Reporte semanal de ${a.name}`, { reply: false });
       }),
     );
-    await sendTask(boss.id, 'user', 'Resumen ejecutivo listo 📊', { reply: false, live: false });
+    await sendTask(boss.id, 'user', 'Resumen ejecutivo listo 📊', { reply: false });
   }
 
   return {
-    sendTask,
+    sendTask: sendTaskRaw,
     cascade,
     report,
     stats: (id) => stat(id),
+    bump: (id, key) => id !== 'user' && stat(id)[key]++,
+    cancel: () => gen++,
     isRunning: () => running,
     setRunning: (v) => (running = v),
     setSpeed(s) {

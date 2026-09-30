@@ -1,7 +1,8 @@
 import { createStore, loadState, uid, OFFICE_COLORS } from './state.js';
 import { createWorld } from './world.js';
 import { createSim } from './sim.js';
-import { PROVIDERS, provider, canCallLive } from './connectors.js';
+import { PROVIDERS, provider, isConnected } from './connectors.js';
+import { createBrain, BRAIN_MODELS } from './brain.js';
 
 const $ = (s) => document.querySelector(s);
 const esc = (s = '') => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -11,6 +12,17 @@ let selection = null; // { type: 'agent'|'office', id }
 
 const world = createWorld($('#scene'), { onSelect: (sel) => select(sel, true) });
 const sim = createSim({ store, world, log });
+let spent = 0;
+const brain = createBrain({
+  store,
+  world,
+  log,
+  bump: (id, key) => sim.bump(id, key),
+  onUsage: (usd) => {
+    spent += usd;
+    renderBrainStatus();
+  },
+});
 
 // ---------- feed ----------
 const feed = $('#feed');
@@ -22,8 +34,9 @@ function log(entry) {
   if (entry.kind === 'info') {
     li.innerHTML = `<div class="meta"><span>sistema</span><span>${time}</span></div><div class="txt">${esc(entry.text)}</div>`;
   } else {
-    const arrow = entry.kind === 'task' ? '→' : '↩';
-    const tag = entry.kind === 'live' ? ' · API real' : entry.kind === 'error' ? ' · error' : '';
+    const arrow = ['task', 'http'].includes(entry.kind) ? '→' : entry.kind === 'brain' ? '·' : '↩';
+    const tag =
+      { live: ' · real', error: ' · error', brain: ' · razonando', final: ' · respuesta final', http: ' · HTTP', 'http-reply': ' · HTTP' }[entry.kind] || '';
     li.innerHTML = `<div class="meta"><span><span class="who">${esc(entry.from)}</span> ${arrow} ${esc(entry.to)}${tag}</span><span>${time}</span></div><div class="txt">${esc(entry.text)}</div>`;
   }
   feed.prepend(li);
@@ -45,7 +58,7 @@ function renderTree() {
         ${agents
           .map((a) => {
             const p = provider(a.provider);
-            return `<div class="tree-row agent${sel('agent', a.id)}" data-agent="${a.id}"><span class="dot" style="background:${p.color}"></span>${esc(a.name)}<small>${p.short}${a.live ? ' ●' : ''}</small></div>`;
+            return `<div class="tree-row agent${sel('agent', a.id)}" data-agent="${a.id}"><span class="dot" style="background:${p.color}"></span>${esc(a.name)}<small>${p.short}${a.provider !== 'claude' && isConnected(a) ? ' ●' : ''}</small></div>`;
           })
           .join('')}
         ${kids.map(officeNode).join('')}
@@ -92,11 +105,16 @@ function renderDetails() {
       .filter((f) => a.config?.[f.key])
       .map((f) => `<dt>${esc(f.label)}</dt><dd>${f.type === 'password' ? '••••••' + esc(String(a.config[f.key]).slice(-4)) : esc(String(a.config[f.key]).slice(0, 80))}</dd>`)
       .join('');
-    const ready = canCallLive(a);
+    const connected = isConnected(a);
+    const hint = !brain.isReady()
+      ? 'Modo demo: respuesta simulada. Configura el ⚙ Cerebro para que trabaje de verdad.'
+      : connected
+        ? `Envío real: ${a.provider === 'claude' ? 'Claude responde con su rol y puede llamar APIs' : 'se llama a su endpoint'}.`
+        : 'Sin endpoint propio: la IA simula su rol (edítalo para conectarlo de verdad).';
     box.innerHTML = `
       <button class="icon-btn close" data-act="close">✕</button>
       <span class="pill"><i style="width:7px;height:7px;border-radius:50%;background:${p.color}"></i>${p.label}</span>
-      ${a.live ? `<span class="pill light">${ready ? 'Live' : 'Live · sin configurar'}</span>` : ''}
+      <span class="pill light">${connected ? 'Conectado' : 'Simulado por IA'}</span>
       <h3>${esc(a.name)}</h3>
       <div class="sub">${esc(a.role || 'Sin descripción')}</div>
       <div class="stats">
@@ -105,7 +123,7 @@ function renderDetails() {
       </div>
       <dl class="kv">
         <dt>Oficina</dt><dd>${esc(office?.name || '-')}</dd>
-        ${conf || '<dt>Config</dt><dd>— (modo demo)</dd>'}
+        ${conf || '<dt>Config</dt><dd>— (sin configurar)</dd>'}
       </dl>
       <textarea id="msgText" placeholder="Escribe una instrucción para ${esc(a.name)}…"></textarea>
       <div class="row">
@@ -113,9 +131,7 @@ function renderDetails() {
         <button class="btn" data-act="edit">Editar</button>
         <button class="btn danger" data-act="delete">Eliminar</button>
       </div>
-      <p class="hint">${
-        a.live && ready ? 'Modo real activo: se llamará a la API y la respuesta aparecerá en Actividad.' : 'Modo demo: la respuesta es simulada. Activa “Modo real” en Editar para conectar la API.'
-      }</p>`;
+      <p class="hint">${hint}</p>`;
   } else {
     const o = store.office(selection.id);
     const agents = store.agentsIn(o.id);
@@ -154,7 +170,14 @@ $('#details').addEventListener('click', (e) => {
     if (act === 'send') {
       const text = $('#msgText').value.trim() || 'Dame un estado rápido de tu trabajo';
       $('#msgText').value = '';
-      sim.sendTask('user', a.id, text).then(() => selection?.id === a.id && renderDetails());
+      const done = () => selection?.id === a.id && renderDetails();
+      if (brain.isReady()) {
+        try {
+          brain.direct(a, text).catch(() => {}).finally(done);
+        } catch (err) {
+          log({ kind: 'error', from: 'Sistema', to: a.name, text: err.message });
+        }
+      } else sim.sendTask('user', a.id, text).then(done);
     }
     if (act === 'edit') openAgentDialog(a);
     if (act === 'delete' && confirm(`¿Eliminar el agente "${a.name}"?`)) {
@@ -239,7 +262,9 @@ function renderProviderPicker() {
       const input =
         f.type === 'textarea'
           ? `<textarea name="cfg_${f.key}" rows="2" placeholder="${esc(f.placeholder)}">${v}</textarea>`
-          : `<input name="cfg_${f.key}" type="${f.type}" placeholder="${esc(f.placeholder)}" value="${v}" autocomplete="off" />`;
+          : f.type === 'select'
+            ? `<select name="cfg_${f.key}">${f.options.map((o) => `<option ${o === (cfg[f.key] ?? f.default) ? 'selected' : ''}>${o}</option>`).join('')}</select>`
+            : `<input name="cfg_${f.key}" type="${f.type}" placeholder="${esc(f.placeholder)}" value="${v}" autocomplete="off" />`;
       return `<label>${esc(f.label)} ${input}</label>`;
     })
     .join('');
@@ -259,7 +284,6 @@ function openAgentDialog(agent, officeId) {
   agentForm.elements.name.value = agent?.name || '';
   agentForm.elements.role.value = agent?.role || '';
   agentForm.elements.officeId.value = agent?.officeId || officeId || (selection?.type === 'office' ? selection.id : store.rootOffice().id);
-  agentForm.elements.live.checked = !!agent?.live;
   renderProviderPicker();
   agentDialog.returnValue = '';
   agentDialog.showModal();
@@ -278,7 +302,6 @@ agentDialog.addEventListener('close', () => {
     officeId: agentForm.elements.officeId.value,
     provider: chosenProvider,
     config,
-    live: agentForm.elements.live.checked,
   };
   store.upsertAgent(a);
   log({ kind: 'info', text: `${editingAgent ? 'Agente actualizado' : 'Nuevo agente'}: ${a.name} (${provider(a.provider).label})` });
@@ -286,7 +309,7 @@ agentDialog.addEventListener('close', () => {
   if (!editingAgent) {
     // Saludo de bienvenida: el orquestador le da la bienvenida
     const boss = store.agentsIn(store.rootOffice().id)[0];
-    if (boss && boss.id !== a.id) setTimeout(() => sim.sendTask(boss.id, a.id, `Bienvenido al equipo, ${a.name} 👋`, { live: false }), 600);
+    if (boss && boss.id !== a.id) setTimeout(() => sim.sendTask(boss.id, a.id, `Bienvenido al equipo, ${a.name} 👋`), 600);
   }
 });
 
@@ -345,6 +368,75 @@ $('#btnReset').onclick = () => {
   select(null, true);
 };
 
+// ---------- cerebro ----------
+const cmdForm = $('#cmdForm');
+const cmdInput = $('#cmdInput');
+function renderBrainStatus() {
+  const st = brain.settings();
+  const ready = brain.isReady();
+  $('#brainStatus').innerHTML = ready
+    ? `<span class="dot on"></span>${esc((BRAIN_MODELS[st.model]?.label || st.model).split(' · ')[0])} · $${spent.toFixed(4)}`
+    : '<span class="dot"></span>Sin configurar';
+  cmdInput.placeholder = ready
+    ? 'Dale un objetivo a tu equipo… ej. "Investiga el clima en CDMX y que Marketing escriba un post"'
+    : 'Configura el ⚙ Cerebro para dar órdenes reales a tu equipo';
+}
+cmdForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const goal = cmdInput.value.trim();
+  if (!goal) return;
+  if (!brain.isReady()) return openBrainDialog();
+  if (brain.isBusy()) return log({ kind: 'info', text: 'El cerebro sigue trabajando, espera a que termine.' });
+  cmdInput.value = '';
+  sim.setRunning(false);
+  sim.cancel();
+  btnPlay.textContent = '▶ Auto';
+  cmdForm.classList.add('busy');
+  world.focus(null);
+  try {
+    await brain.run(goal);
+  } catch (err) {
+    log({ kind: 'error', from: 'Cerebro', to: 'Tú', text: err.message });
+  } finally {
+    cmdForm.classList.remove('busy');
+    renderDetails();
+  }
+});
+
+const brainDialog = $('#brainDialog');
+const brainForm = $('#brainForm');
+brainForm.elements.model.innerHTML = Object.entries(BRAIN_MODELS)
+  .map(([id, m]) => `<option value="${id}">${esc(m.label)} ($${m.input}/$${m.output} por millón de tokens)</option>`)
+  .join('');
+function openBrainDialog() {
+  const st = brain.settings();
+  for (const k of ['apiKey', 'model', 'proxyUrl', 'proxyToken', 'maxSteps']) brainForm.elements[k].value = st[k] ?? '';
+  brainDialog.returnValue = '';
+  brainDialog.showModal();
+}
+brainDialog.addEventListener('close', () => {
+  if (brainDialog.returnValue !== 'ok') return;
+  const f = brainForm.elements;
+  brain.setSettings({
+    apiKey: f.apiKey.value.trim(),
+    model: f.model.value,
+    proxyUrl: f.proxyUrl.value.trim(),
+    proxyToken: f.proxyToken.value.trim(),
+    maxSteps: Math.min(20, Math.max(1, Number(f.maxSteps.value) || 8)),
+  });
+  renderBrainStatus();
+  renderDetails();
+  if (brain.isReady()) {
+    sim.setRunning(false);
+    sim.cancel();
+    btnPlay.textContent = '▶ Auto';
+    log({ kind: 'info', text: 'Cerebro configurado ✔ Escribe un objetivo en la barra inferior.' });
+  }
+});
+$('#btnBrain').onclick = openBrainDialog;
+$('#brainStatus').onclick = openBrainDialog;
+renderBrainStatus();
+
 // ---------- arranque ----------
 store.subscribe((state) => {
   world.rebuild(state);
@@ -353,8 +445,15 @@ store.subscribe((state) => {
 });
 world.rebuild(store.get());
 renderTree();
-log({ kind: 'info', text: 'Bienvenido 👋 Haz clic en una oficina o agente, o lanza un flujo desde la barra superior.' });
-setTimeout(() => sim.cascade(), 1500);
+if (brain.isReady()) {
+  // Con el cerebro activo no mezclamos tráfico simulado con el real
+  sim.setRunning(false);
+  btnPlay.textContent = '▶ Auto';
+  log({ kind: 'info', text: 'Cerebro listo 🧠 Escribe un objetivo abajo y mira cómo tu equipo lo resuelve.' });
+} else {
+  log({ kind: 'info', text: 'Modo demo 👋 Configura el ⚙ Cerebro (API key de Anthropic) para que los agentes trabajen de verdad.' });
+  setTimeout(() => sim.cascade(), 1500);
+}
 
 let last = performance.now();
 (function loop(now) {

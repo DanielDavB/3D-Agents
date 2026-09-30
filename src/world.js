@@ -12,6 +12,7 @@ const RING = 30; // distancia entre niveles del árbol de oficinas
 const WALL_H = 2.6;
 const HUB_Y = 7;
 const USER_POS = new THREE.Vector3(0, 22, 0);
+const EXTERNAL_POS = new THREE.Vector3(0, 12, -62); // nodo "APIs externas"
 
 function label(html, className) {
   const el = document.createElement('div');
@@ -107,6 +108,20 @@ export function createWorld(container, { onSelect } = {}) {
   userLabel.position.set(0, 2, 0);
   userNode.add(userLabel);
   scene.add(userNode);
+
+  // Nodo "APIs externas": destino de las peticiones HTTP reales
+  const extNode = new THREE.Group();
+  extNode.position.copy(EXTERNAL_POS);
+  const extOrb = new THREE.Mesh(new THREE.SphereGeometry(3, 18, 12), new THREE.MeshBasicMaterial({ color: '#e8600c', wireframe: true }));
+  extNode.add(extOrb);
+  const extRing = new THREE.Mesh(new THREE.TorusGeometry(4.4, 0.05, 8, 64), new THREE.MeshBasicMaterial({ color: '#ffffff' }));
+  extRing.rotation.x = Math.PI / 2.4;
+  extNode.add(extRing);
+  const extLabel = label('APIs externas', 'label user-label ext-label');
+  extLabel.position.set(0, 5, 0);
+  extNode.add(extLabel);
+  scene.add(extNode);
+  const working = new Set();
 
   let world = new THREE.Group();
   scene.add(world);
@@ -284,6 +299,7 @@ export function createWorld(container, { onSelect } = {}) {
     });
 
     agentViews.set(agent.id, {
+      id: agent.id,
       group: g, halo, body, head, screen, select, anchor, officeId: office.id, pulse: 0, phase: Math.random() * 6, tag,
     });
     return g;
@@ -349,6 +365,7 @@ export function createWorld(container, { onSelect } = {}) {
   // ---------- mensajes ----------
   function anchorOf(id) {
     if (id === 'user') return USER_POS.clone();
+    if (id === 'external') return EXTERNAL_POS.clone();
     const v = agentViews.get(id);
     return v ? v.anchor.getWorldPosition(new THREE.Vector3()) : null;
   }
@@ -371,8 +388,8 @@ export function createWorld(container, { onSelect } = {}) {
     const b = anchorOf(toId);
     if (!a || !b) return null;
     const pts = [a];
-    const fo = fromId === 'user' ? null : agentViews.get(fromId).officeId;
-    const to = toId === 'user' ? null : agentViews.get(toId).officeId;
+    const fo = agentViews.get(fromId)?.officeId || null;
+    const to = agentViews.get(toId)?.officeId || null;
     if (fo && to) {
       const up = officeChain(fo);
       const down = officeChain(to);
@@ -452,6 +469,7 @@ export function createWorld(container, { onSelect } = {}) {
     const v = agentViews.get(id);
     if (v) v.pulse = Math.max(v.pulse, amount);
     if (id === 'user') userOrb.userData.pulse = 1;
+    if (id === 'external') extOrb.userData.pulse = 1;
   }
 
   function spawnAmbient() {
@@ -545,6 +563,7 @@ export function createWorld(container, { onSelect } = {}) {
     // Agentes: flotan suavemente y brillan al recibir mensajes
     for (const v of agentViews.values()) {
       v.pulse = Math.max(0, v.pulse - rawDt * 0.9);
+      if (working.has(v.id)) v.pulse = Math.max(v.pulse, 0.45 + Math.sin(time * 6) * 0.25);
       const bob = Math.sin(time * 2 + v.phase) * 0.05;
       v.body.position.y = 0.95 + bob;
       v.head.position.y = 1.85 + bob;
@@ -562,6 +581,10 @@ export function createWorld(container, { onSelect } = {}) {
     world.traverse((o) => {
       if (o.userData.spin) o.rotation.z += rawDt * o.userData.spin;
     });
+    extOrb.rotation.y += rawDt * 0.3;
+    extRing.rotation.z += rawDt * 0.5;
+    extOrb.userData.pulse = Math.max(0, (extOrb.userData.pulse || 0) - rawDt);
+    extOrb.scale.setScalar(1 + extOrb.userData.pulse * 0.3);
     userOrb.rotation.y += rawDt * 0.6;
     userOrb.userData.pulse = Math.max(0, (userOrb.userData.pulse || 0) - rawDt);
     userOrb.scale.setScalar(1 + userOrb.userData.pulse * 0.5);
@@ -625,5 +648,6 @@ export function createWorld(container, { onSelect } = {}) {
     setTimeScale: (s) => (timeScale = s),
     setAutoRotate: (on) => (controls.autoRotate = on),
     hasAgent: (id) => agentViews.has(id),
+    setWorking: (id, on) => (on ? working.add(id) : working.delete(id)),
   };
 }

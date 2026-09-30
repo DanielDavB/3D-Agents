@@ -20,7 +20,7 @@ export function seedState() {
   ];
   const a = (id, name, role, officeId, provider, config = {}) => ({ id, name, role, officeId, provider, config, live: false });
   const agents = [
-    a('ag_ceo', 'Orquestador', 'Director general: reparte tareas', hq.id, 'claude', { model: 'claude-opus-5-5' }),
+    a('ag_ceo', 'Orquestador', 'Cerebro: entiende tu objetivo y reparte tareas', hq.id, 'claude'),
     a('ag_router', 'Router', 'Enruta eventos entrantes', hq.id, 'n8n'),
     a('ag_pm', 'PM Bot', 'Planifica sprints y entregables', 'off_pm', 'claude'),
     a('ag_tracker', 'Tracker', 'Sincroniza tareas con Jira/Notion', 'off_pm', 'n8n'),
@@ -41,6 +41,15 @@ export function seedState() {
 // Organizaciones guardadas con la paleta anterior: se recolorean por nivel
 // (principal blanca, departamentos naranja, sub-oficinas gris) sin tocar agentes.
 function migrateTheme(s) {
+  // Agentes Claude con modelos caros de versiones anteriores pasan al modelo del cerebro (Haiku por defecto)
+  s = {
+    ...s,
+    agents: s.agents.map((ag) =>
+      ag.provider === 'claude' && ag.config?.model && !['claude-haiku-4-5', 'claude-sonnet-5-5'].includes(ag.config.model)
+        ? { ...ag, config: { ...ag.config, model: undefined } }
+        : ag,
+    ),
+  };
   if (s.theme === 'naranja') return s;
   const byId = new Map(s.offices.map((o) => [o.id, o]));
   const depth = (o, n = 0) => (o.parentId && byId.has(o.parentId) && n < 20 ? depth(byId.get(o.parentId), n + 1) : n);
