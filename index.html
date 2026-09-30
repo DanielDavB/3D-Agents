@@ -6,8 +6,8 @@
     <title>3D Agents · Oficina de automatizaciones</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Carlito:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
-    <script type="module" crossorigin src="./assets/index-DADPeCoM.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-BThTV4CL.css">
+    <script type="module" crossorigin src="./assets/index-G8JPOWbM.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-Do-GHADX.css">
   </head>
   <body>
     <div id="scene"></div>
@@ -34,6 +34,8 @@
         <span class="sep"></span>
         <button id="btnAddOffice" class="btn">+ Oficina</button>
         <button id="btnAddAgent" class="btn">+ Agente</button>
+        <span class="sep"></span>
+        <button id="btnBrain" class="btn ghost-light">⚙ Cerebro</button>
         <details class="menu">
           <summary class="btn">⋯</summary>
           <div class="menu-list">
@@ -94,8 +96,36 @@
           <div id="providerPicker" class="provider-picker"></div>
         </div>
         <fieldset id="providerFields"></fieldset>
-        <label class="check"><input type="checkbox" name="live" /> Modo real: llamar a la API cuando reciba mensajes manuales</label>
-        <p class="hint">Las credenciales se guardan solo en este navegador (localStorage). Úsalo para demos, no en producción.</p>
+        <p class="hint">Sin endpoint configurado, la IA simula el rol del agente. Las credenciales se guardan solo en este navegador.</p>
+        <menu>
+          <button value="cancel" formnovalidate class="btn">Cancelar</button>
+          <button value="ok" class="btn accent">Guardar</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <form id="cmdForm" class="cmdbar" autocomplete="off">
+      <button type="button" id="brainStatus" class="brain-status" title="Configurar cerebro"></button>
+      <input id="cmdInput" placeholder="Dale un objetivo a tu equipo…" />
+      <button class="btn accent" type="submit"><span class="idle">Enviar</span><span class="spin">Trabajando…</span></button>
+    </form>
+
+    <dialog id="brainDialog">
+      <form method="dialog" id="brainForm">
+        <span class="pill">Cerebro</span>
+        <h3>Configurar el cerebro</h3>
+        <p class="hint">El Orquestador usa Claude para decidir a qué agentes delegar y qué APIs llamar. Haiku 4.5 es el modelo más barato: una tarea típica cuesta menos de un centavo de dólar.</p>
+        <label>API key de Anthropic <input name="apiKey" type="password" placeholder="sk-ant-..." autocomplete="off" /></label>
+        <div class="grid2">
+          <label>Modelo <select name="model"></select></label>
+          <label>Máximo de pasos por tarea <input name="maxSteps" type="number" min="1" max="20" value="8" /></label>
+        </div>
+        <fieldset>
+          <label>Proxy CORS (opcional) <input name="proxyUrl" placeholder="https://mi-proxy.workers.dev" /></label>
+          <label>Token del proxy (opcional) <input name="proxyToken" type="password" autocomplete="off" /></label>
+          <p class="hint">Muchas APIs bloquean llamadas desde el navegador (CORS). Despliega el proxy de la carpeta <b>proxy/</b> del repositorio y pega su URL aquí.</p>
+        </fieldset>
+        <p class="hint">La key se guarda solo en este navegador (localStorage) y se envía directo a Anthropic. Usa una key con límite de gasto.</p>
         <menu>
           <button value="cancel" formnovalidate class="btn">Cancelar</button>
           <button value="ok" class="btn accent">Guardar</button>
