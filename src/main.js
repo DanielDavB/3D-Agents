@@ -107,7 +107,7 @@ function renderTree() {
         ${agents
           .map((a) => {
             const p = provider(a.provider);
-            return `<div class="tree-row agent${sel('agent', a.id)}" data-agent="${a.id}"><span class="dot" style="background:${p.color}"></span>${esc(a.name)}<small>${p.short}${a.provider !== 'claude' && isConnected(a) ? ' ●' : ''}</small></div>`;
+            return `<div class="tree-row agent${sel('agent', a.id)}" data-agent="${a.id}"><span class="dot" style="background:${p.color}"></span>${esc(a.name)}<small>${p.short}</small></div>`;
           })
           .join('')}
         ${kids.map(officeNode).join('')}
@@ -122,9 +122,6 @@ $('#tree').addEventListener('click', (e) => {
   select(row.dataset.agent ? { type: 'agent', id: row.dataset.agent } : { type: 'office', id: row.dataset.office }, true);
 });
 
-$('#legend').innerHTML = Object.values(PROVIDERS)
-  .map((p) => `<span><i style="background:${p.color}"></i>${p.short}</span>`)
-  .join('');
 
 // ---------- selección y panel de detalles ----------
 function select(sel, fly) {

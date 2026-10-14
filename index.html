@@ -16,29 +16,42 @@
       <div class="brand">
         <span class="logo">AI</span>
         <div>
-          <h1>Treve · <span>Oficina digital</span> <em class="pill">MVP</em></h1>
-          <small>Propuesta de AI Lab School · datos de ejemplo</small>
+          <h1>Treve <span>Oficina digital</span></h1>
+          <small><b>MVP</b> · AI Lab School · datos de ejemplo</small>
         </div>
       </div>
       <div class="controls">
-        <button id="btnCycle" class="btn accent">▶ Ejecutar ciclo de datos</button>
-        <button id="btnDash" class="btn ghost-light">📊 Dashboard</button>
-        <span class="sep"></span>
-        <button id="btnPlay" class="btn" title="Tráfico de ambiente entre agentes">⏸ Auto</button>
-        <select id="speed" class="btn" title="Velocidad">
-          <option value="0.5">0.5×</option>
-          <option value="1" selected>1×</option>
-          <option value="2">2×</option>
-          <option value="4">4×</option>
-        </select>
-        <button id="btnAddOffice" class="btn">+ Oficina</button>
-        <button id="btnAddAgent" class="btn">+ Agente</button>
-        <span class="sep"></span>
-        <button id="btnBrain" class="btn">⚙ Cerebro</button>
+        <button id="btnCycle" class="btn accent">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z" fill="currentColor"/></svg>
+          Ejecutar ciclo
+        </button>
+        <button id="btnDash" class="btn">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+          Dashboard
+        </button>
+        <button id="btnBrain" class="icon-round" title="Cerebro con IA (API key)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+        </button>
         <details class="menu">
-          <summary class="btn">⋯</summary>
+          <summary class="icon-round" title="Más opciones">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8" fill="currentColor"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><circle cx="19" cy="12" r="1.8" fill="currentColor"/></svg>
+          </summary>
           <div class="menu-list">
+            <div class="menu-row"><span>Tráfico de ambiente</span><button id="btnPlay" class="mini">⏸ Auto</button></div>
+            <div class="menu-row">
+              <span>Velocidad</span>
+              <select id="speed" class="mini">
+                <option value="0.5">0.5×</option>
+                <option value="1" selected>1×</option>
+                <option value="2">2×</option>
+                <option value="4">4×</option>
+              </select>
+            </div>
+            <hr />
+            <button id="btnAddOffice">Nueva oficina</button>
+            <button id="btnAddAgent">Nuevo agente</button>
             <button id="btnOverview">Vista general</button>
+            <hr />
             <button id="btnExport">Exportar JSON</button>
             <button id="btnImport">Importar JSON</button>
             <button id="btnReset" class="danger">Restablecer MVP</button>
@@ -50,19 +63,18 @@
 
     <aside id="sidebar" class="panel">
       <div class="panel-head">
-        <h2 class="pill">Organización</h2>
+        <h2>Organización</h2>
         <button id="btnToggleSidebar" class="icon-btn" title="Contraer">⟨</button>
       </div>
       <div id="tree"></div>
-      <div id="legend"></div>
     </aside>
 
     <div id="right">
       <section id="details" class="panel" hidden></section>
       <section id="feedPanel" class="panel">
         <div class="panel-head">
-          <h2 class="pill"><span class="live-dot"></span>Actividad</h2>
-          <button id="btnClearFeed" class="icon-btn" title="Limpiar">⌫</button>
+          <h2><span class="live-dot"></span>Actividad</h2>
+          <button id="btnClearFeed" class="icon-btn" title="Limpiar">Limpiar</button>
         </div>
         <ol id="feed"></ol>
       </section>
@@ -78,7 +90,7 @@
         <li><b>3</b><div><strong>Dashboard ejecutivo</strong><span>Salud financiera, retorno de marketing, rentabilidad y riesgo por cliente</span></div></li>
       </ol>
       <div class="row">
-        <button class="btn accent" data-act="run-cycle">▶ Ejecutar ciclo de datos</button>
+        <button class="btn accent" data-act="run-cycle">Ejecutar ciclo de datos</button>
         <button class="btn" data-act="close-intro">Explorar la oficina</button>
       </div>
       <p class="hint">Datos de ejemplo: no contiene información real de Treve.</p>
