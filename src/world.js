@@ -44,6 +44,17 @@ function layoutOffices(offices) {
     }
   };
   place(root, 0, -Math.PI / 2, Math.PI * 1.5);
+  // Gira todo para que la primera oficina (Capa 1 · Fuentes) quede al frente de la cámara
+  const first = kids(root.id)[0];
+  if (first) {
+    const delta = Math.PI / 2 - pos.get(first.id).angle;
+    for (const p of pos.values()) {
+      if (!p.depth) continue;
+      const ang = p.angle + delta;
+      const r = p.depth * RING;
+      Object.assign(p, { angle: ang, x: Math.cos(ang) * r, z: Math.sin(ang) * r });
+    }
+  }
   return { root, pos };
 }
 
@@ -131,6 +142,7 @@ export function createWorld(container, { onSelect } = {}) {
   let officeViews = new Map(); // officeId -> { group, hub, floor, color, parentId }
   let corridors = []; // { curve, color }
   let pickables = [];
+  let sourceViews = new Map(); // sourceId -> { group, top, pulse, ring }
   const packets = [];
   const ambient = [];
   let timeScale = 1;
@@ -229,6 +241,7 @@ export function createWorld(container, { onSelect } = {}) {
     g.updateMatrixWorld(true);
     officeViews.set(office.id, {
       group: g, hub, hubWorld: hub.getWorldPosition(new THREE.Vector3()), color, parentId: office.parentId, base,
+      size: Math.max(size, depthSize),
     });
   }
 
@@ -345,12 +358,13 @@ export function createWorld(container, { onSelect } = {}) {
     scene.add(world);
     agentViews = new Map();
     officeViews = new Map();
+    sourceViews = new Map();
     pickables = [];
     for (const p of packets.splice(0)) disposePacket(p);
     for (const d of ambient.splice(0)) scene.remove(d.mesh);
   }
 
-  function rebuild(state) {
+  function rebuild(state, sources = []) {
     clear();
     const { root, pos } = layoutOffices(state.offices);
     for (const office of state.offices) {
@@ -359,13 +373,73 @@ export function createWorld(container, { onSelect } = {}) {
       buildOffice(office, p, state.agents.filter((a) => a.officeId === office.id), office.id === root.id);
     }
     buildCorridors();
+    buildSources(sources);
     if (selectedId) setSelected(selectedId);
+  }
+
+  // ---------- fuentes de datos (Compaq, Esfera, Monday…) ----------
+  // Se dibujan como bases de datos fuera de la oficina de su agente, unidas por una línea.
+  function buildSources(sources) {
+    const byOffice = new Map();
+    for (const src of sources) {
+      const av = agentViews.get(src.agentId);
+      if (!av) continue;
+      if (!byOffice.has(av.officeId)) byOffice.set(av.officeId, []);
+      byOffice.get(av.officeId).push({ src, av });
+    }
+    for (const [officeId, list] of byOffice) {
+      const ov = officeViews.get(officeId);
+      const center = ov.group.position.clone();
+      const out = center.clone().setY(0);
+      if (out.lengthSq() < 1) out.set(0, 0, 1);
+      out.normalize();
+      const perp = new THREE.Vector3(-out.z, 0, out.x);
+      const agentPos = (av) => av.group.getWorldPosition(new THREE.Vector3());
+      // Ordenadas según la posición lateral de su agente para que las líneas no se crucen
+      list.sort((a, b) => agentPos(a.av).sub(center).dot(perp) - agentPos(b.av).sub(center).dot(perp));
+      list.forEach(({ src, av }, i) => {
+        const p = center.clone().addScaledVector(out, ov.size / 2 + 7).addScaledVector(perp, (i - (list.length - 1) / 2) * 10.5);
+        p.y = 0;
+        const g = new THREE.Group();
+        g.position.copy(p);
+        const mat = new THREE.MeshStandardMaterial({ color: '#e9e9e9', roughness: 0.35, metalness: 0.1, emissive: '#e8600c', emissiveIntensity: 0 });
+        for (let k = 0; k < 3; k++) {
+          const disc = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 0.8, 28), mat);
+          disc.position.y = 0.5 + k * 0.95;
+          disc.castShadow = true;
+          disc.userData.sourceId = src.id;
+          pickables.push(disc);
+          g.add(disc);
+        }
+        const ring = new THREE.Mesh(new THREE.RingGeometry(1.9, 2.15, 40), new THREE.MeshBasicMaterial({ color: '#e8600c', side: THREE.DoubleSide, transparent: true, opacity: 0.8 }));
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.y = 0.03;
+        g.add(ring);
+        const tag = label(`<b>${src.name}</b>`, 'label source-label');
+        tag.element.title = src.desc;
+        tag.position.set(0, 4.4, 0);
+        tag.element.addEventListener('click', () => onSelect?.({ type: 'source', id: src.id }));
+        g.add(tag);
+        world.add(g);
+        // Línea punteada fuente → agente
+        const a = p.clone().setY(0.06);
+        const b = agentPos(av).setY(0.06);
+        const line = new THREE.Line(
+          new THREE.BufferGeometry().setFromPoints([a, b]),
+          new THREE.LineDashedMaterial({ color: '#e8600c', dashSize: 0.6, gapSize: 0.5, transparent: true, opacity: 0.55 }),
+        );
+        line.computeLineDistances();
+        world.add(line);
+        sourceViews.set(src.id, { group: g, top: p.clone().setY(3.6), pulse: 0, mat, ring });
+      });
+    }
   }
 
   // ---------- mensajes ----------
   function anchorOf(id) {
     if (id === 'user') return USER_POS.clone();
     if (id === 'external') return EXTERNAL_POS.clone();
+    if (id.startsWith?.('src:')) return sourceViews.get(id.slice(4))?.top.clone() || null;
     const v = agentViews.get(id);
     return v ? v.anchor.getWorldPosition(new THREE.Vector3()) : null;
   }
@@ -388,6 +462,8 @@ export function createWorld(container, { onSelect } = {}) {
     const b = anchorOf(toId);
     if (!a || !b) return null;
     const pts = [a];
+    // Fuente ↔ agente: arco directo, sin pasar por hubs
+    if (fromId.startsWith('src:') || toId.startsWith('src:')) return [a, b];
     const fo = agentViews.get(fromId)?.officeId || null;
     const to = agentViews.get(toId)?.officeId || null;
     if (fo && to) {
@@ -470,6 +546,7 @@ export function createWorld(container, { onSelect } = {}) {
     if (v) v.pulse = Math.max(v.pulse, amount);
     if (id === 'user') userOrb.userData.pulse = 1;
     if (id === 'external') extOrb.userData.pulse = 1;
+    if (id.startsWith?.('src:') && sourceViews.has(id.slice(4))) sourceViews.get(id.slice(4)).pulse = 1;
   }
 
   function spawnAmbient() {
@@ -494,8 +571,9 @@ export function createWorld(container, { onSelect } = {}) {
     raycaster.setFromCamera(pointer, camera);
     const hit = raycaster.intersectObjects(pickables, false)[0];
     if (!hit) return onSelect?.(null);
-    const { agentId, officeId } = hit.object.userData;
-    if (agentId) onSelect?.({ type: 'agent', id: agentId });
+    const { agentId, officeId, sourceId } = hit.object.userData;
+    if (sourceId) onSelect?.({ type: 'source', id: sourceId });
+    else if (agentId) onSelect?.({ type: 'agent', id: agentId });
     else if (officeId) onSelect?.({ type: 'office', id: officeId });
   });
   renderer.domElement.addEventListener('pointerdown', () => (controls.autoRotate = false), { once: true });
@@ -518,6 +596,9 @@ export function createWorld(container, { onSelect } = {}) {
     if (sel.type === 'agent') {
       const v = agentViews.get(sel.id);
       if (v) flyTo(v.group.getWorldPosition(new THREE.Vector3()), 16);
+    } else if (sel.type === 'source') {
+      const v = sourceViews.get(sel.id);
+      if (v) flyTo(v.group.position.clone(), 22);
     } else {
       const v = officeViews.get(sel.id);
       if (v) flyTo(v.group.position.clone(), 34);
@@ -577,6 +658,11 @@ export function createWorld(container, { onSelect } = {}) {
     }
     for (const v of officeViews.values()) {
       v.hub.rotation.y += rawDt * 0.8;
+    }
+    for (const v of sourceViews.values()) {
+      v.pulse = Math.max(0, v.pulse - rawDt * 0.8);
+      v.mat.emissiveIntensity = v.pulse * 0.9;
+      v.ring.scale.setScalar(1 + v.pulse * 0.6);
     }
     world.traverse((o) => {
       if (o.userData.spin) o.rotation.z += rawDt * o.userData.spin;

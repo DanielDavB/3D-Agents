@@ -3,12 +3,59 @@ import { createWorld } from './world.js';
 import { createSim } from './sim.js';
 import { PROVIDERS, provider, isConnected } from './connectors.js';
 import { createBrain, BRAIN_MODELS } from './brain.js';
+import { createPipeline } from './pipeline.js';
+import { renderSummary, renderTrace, renderUsage } from './dashboard.js';
+import { PROJECT, SOURCES, DOCUMENTS } from './project.js';
 
 const $ = (s) => document.querySelector(s);
 const esc = (s = '') => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 const store = createStore(loadState());
-let selection = null; // { type: 'agent'|'office', id }
+let selection = null; // { type: 'agent'|'office'|'source', id }
+
+// Registro compartido del MVP: consumo de tokens, trazabilidad y últimos resultados por agente
+const usage = new Map(); // agentId -> { input, output, usd, calls, modes:Set }
+const results = new Map(); // agentId -> { text, time }
+const clock = () => new Date().toLocaleTimeString('es', { hour12: false });
+function addUsage(agentId, u, usd, mode) {
+  if (!agentId) return;
+  const cur = usage.get(agentId) || { input: 0, output: 0, usd: 0, calls: 0, modes: new Set() };
+  cur.input += u.input_tokens || 0;
+  cur.output += u.output_tokens || 0;
+  cur.usd += usd;
+  cur.calls += 1;
+  cur.modes.add(mode);
+  usage.set(agentId, cur);
+  refreshPanels();
+}
+function setResult(agentId, text) {
+  results.set(agentId, { text, time: clock() });
+  if (selection?.id === agentId) renderDetails();
+}
+const trace = {
+  rows: [],
+  decisions: [],
+  reset() {
+    this.rows = [];
+    this.decisions = [];
+    refreshPanels();
+  },
+  add(r) {
+    this.rows.push({ ...r, time: clock() });
+    refreshPanels();
+  },
+  setAll(status, onlyFrom) {
+    this.rows.forEach((r) => (!onlyFrom || onlyFrom.includes(r.status)) && Object.assign(r, { status, time: clock() }));
+    refreshPanels();
+  },
+  setDoc(doc, status) {
+    this.rows.filter((r) => r.doc === doc).forEach((r) => Object.assign(r, { status, time: clock() }));
+    refreshPanels();
+  },
+  decide(f, ok) {
+    this.decisions.push({ ...f, ok, time: clock() });
+  },
+};
 
 const world = createWorld($('#scene'), { onSelect: (sel) => select(sel, true) });
 const sim = createSim({ store, world, log });
@@ -18,10 +65,12 @@ const brain = createBrain({
   world,
   log,
   bump: (id, key) => sim.bump(id, key),
-  onUsage: (usd) => {
+  onUsage: (usd, u, agentId) => {
     spent += usd;
+    addUsage(agentId, u, usd, 'real');
     renderBrainStatus();
   },
+  onResult: setResult,
 });
 
 // ---------- feed ----------
@@ -36,7 +85,7 @@ function log(entry) {
   } else {
     const arrow = ['task', 'http'].includes(entry.kind) ? '→' : entry.kind === 'brain' ? '·' : '↩';
     const tag =
-      { live: ' · real', error: ' · error', brain: ' · razonando', final: ' · respuesta final', http: ' · HTTP', 'http-reply': ' · HTTP' }[entry.kind] || '';
+      { live: ' · resultado', error: ' · error', brain: ' · razonando', final: ' · respuesta final', http: ' · HTTP', 'http-reply': ' · HTTP', doc: ' · documentos', alert: ' · requiere validación' }[entry.kind] || '';
     li.innerHTML = `<div class="meta"><span><span class="who">${esc(entry.from)}</span> ${arrow} ${esc(entry.to)}${tag}</span><span>${time}</span></div><div class="txt">${esc(entry.text)}</div>`;
   }
   feed.prepend(li);
@@ -81,6 +130,7 @@ $('#legend').innerHTML = Object.values(PROVIDERS)
 function select(sel, fly) {
   if (sel && sel.type === 'agent' && !store.agent(sel.id)) sel = null;
   if (sel && sel.type === 'office' && !store.office(sel.id)) sel = null;
+  if (sel && sel.type === 'source' && !SOURCES.some((s) => s.id === sel.id)) sel = null;
   selection = sel;
   world.setSelected(sel?.type === 'agent' ? sel.id : null);
   if (fly) world.focus(sel);
@@ -96,6 +146,25 @@ function renderDetails() {
   }
   box.hidden = false;
   box.style.position = 'relative';
+  if (selection.type === 'source') {
+    const src = SOURCES.find((s) => s.id === selection.id);
+    const agent = store.agent(src.agentId);
+    const docs = trace.rows.filter((r) => r.source === src.name);
+    box.innerHTML = `
+      <button class="icon-btn close" data-act="close">✕</button>
+      <span class="pill">Fuente de datos</span>
+      <h3>${esc(src.name)}</h3>
+      <div class="sub">${esc(src.desc)} · la lee ${agent ? `<a href="#" data-agent="${agent.id}">${esc(agent.name)}</a>` : 'ningún agente'}</div>
+      <div class="stats">
+        <div class="stat"><b>${(DOCUMENTS[src.id] || []).length}</b><span>Documentos por ciclo</span></div>
+        <div class="stat"><b>${docs.reduce((n, d) => n + d.records, 0)}</b><span>Registros este ciclo</span></div>
+      </div>
+      <dl class="kv">${(docs.length ? docs : (DOCUMENTS[src.id] || []).map((d) => ({ doc: d.name, status: 'Pendiente' })))
+        .map((d) => `<dt>${esc(d.status)}</dt><dd>${esc(d.doc)}</dd>`)
+        .join('')}</dl>
+      <p class="hint">En el MVP la conexión es simulada. En producción, este agente extrae la información de ${esc(src.name)} de forma automática y programada.</p>`;
+    return;
+  }
   if (selection.type === 'agent') {
     const a = store.agent(selection.id);
     const p = provider(a.provider);
@@ -121,8 +190,10 @@ function renderDetails() {
         <div class="stat"><b>${st.sent}</b><span>Enviados</span></div>
         <div class="stat"><b>${st.received}</b><span>Recibidos</span></div>
       </div>
+      ${results.has(a.id) ? `<div class="result"><span>Último resultado · ${results.get(a.id).time}</span><p>${esc(results.get(a.id).text.slice(0, 400))}</p></div>` : ''}
       <dl class="kv">
         <dt>Oficina</dt><dd>${esc(office?.name || '-')}</dd>
+        ${usage.has(a.id) ? `<dt>Tokens</dt><dd>${(usage.get(a.id).input + usage.get(a.id).output).toLocaleString('es-MX')} · $${usage.get(a.id).usd.toFixed(4)}</dd>` : ''}
         ${conf || '<dt>Config</dt><dd>— (sin configurar)</dd>'}
       </dl>
       <textarea id="msgText" placeholder="Escribe una instrucción para ${esc(a.name)}…"></textarea>
@@ -160,7 +231,10 @@ function renderDetails() {
 
 $('#details').addEventListener('click', (e) => {
   const agentBtn = e.target.closest('[data-agent]');
-  if (agentBtn) return select({ type: 'agent', id: agentBtn.dataset.agent }, true);
+  if (agentBtn) {
+    e.preventDefault();
+    return select({ type: 'agent', id: agentBtn.dataset.agent }, true);
+  }
   const act = e.target.closest('[data-act]')?.dataset.act;
   if (!act || !selection) return;
   const { type, id } = selection;
@@ -320,14 +394,6 @@ btnPlay.onclick = () => {
   btnPlay.textContent = sim.isRunning() ? '⏸ Auto' : '▶ Auto';
 };
 $('#speed').onchange = (e) => sim.setSpeed(Number(e.target.value));
-$('#btnCascade').onclick = () => {
-  world.focus(null);
-  sim.cascade();
-};
-$('#btnReport').onclick = () => {
-  world.focus(null);
-  sim.report();
-};
 $('#btnAddOffice').onclick = () => openOfficeDialog(null, selection?.type === 'office' ? selection.id : undefined);
 $('#btnAddAgent').onclick = () => openAgentDialog(null);
 $('#btnClearFeed').onclick = () => (feed.innerHTML = '');
@@ -353,7 +419,7 @@ $('#importFile').onchange = async (e) => {
   try {
     const data = JSON.parse(await file.text());
     if (!Array.isArray(data.offices) || !Array.isArray(data.agents)) throw new Error('Formato inválido');
-    store.set({ theme: 'naranja', ...data });
+    store.set(data);
     select(null, true);
     log({ kind: 'info', text: `Importado: ${data.offices.length} oficinas, ${data.agents.length} agentes` });
   } catch (err) {
@@ -389,7 +455,6 @@ cmdForm.addEventListener('submit', async (e) => {
   if (brain.isBusy()) return log({ kind: 'info', text: 'El cerebro sigue trabajando, espera a que termine.' });
   cmdInput.value = '';
   sim.setRunning(false);
-  sim.cancel();
   btnPlay.textContent = '▶ Auto';
   cmdForm.classList.add('busy');
   world.focus(null);
@@ -428,8 +493,7 @@ brainDialog.addEventListener('close', () => {
   renderDetails();
   if (brain.isReady()) {
     sim.setRunning(false);
-    sim.cancel();
-    btnPlay.textContent = '▶ Auto';
+      btnPlay.textContent = '▶ Auto';
     log({ kind: 'info', text: 'Cerebro configurado ✔ Escribe un objetivo en la barra inferior.' });
   }
 });
@@ -437,23 +501,101 @@ $('#btnBrain').onclick = openBrainDialog;
 $('#brainStatus').onclick = openBrainDialog;
 renderBrainStatus();
 
+// ---------- MVP: ciclo de datos, dashboard y validación humana ----------
+let dashData = { ready: false, quality: { score: 0, approved: 0, total: 0 } };
+let tab = 'summary';
+const dash = $('#dash');
+$('#dashTitle').textContent = `${PROJECT.client} · ${PROJECT.period}`;
+function refreshPanels() {
+  if (dash.hidden) return;
+  const body = $('#dashBody');
+  if (tab === 'summary') renderSummary(body, { store, ...dashData });
+  if (tab === 'trace') renderTrace(body, { rows: trace.rows, decisions: trace.decisions, store });
+  if (tab === 'usage') renderUsage(body, { usage, store });
+}
+function openDash(which = tab) {
+  tab = which;
+  dash.hidden = false;
+  dash.querySelectorAll('[data-tab]').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
+  refreshPanels();
+}
+dash.querySelector('.tabs').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-tab]');
+  if (b) openDash(b.dataset.tab);
+});
+$('#btnDash').onclick = () => (dash.hidden ? openDash() : (dash.hidden = true));
+
+// Validación humana: el auditor espera tu decisión antes de publicar
+const validationDialog = $('#validationDialog');
+function askValidation(findings) {
+  $('#findings').innerHTML = findings
+    .map(
+      (f) => `<label class="finding"><input type="checkbox" name="${f.id}" checked />
+        <div><b>${esc(f.title)}</b><span>${esc(f.detail)}</span><em>Corrección: ${esc(f.fix)}</em></div></label>`,
+    )
+    .join('');
+  return new Promise((resolve) => {
+    validationDialog.addEventListener(
+      'close',
+      () => resolve(Object.fromEntries(findings.map((f) => [f.id, $('#validationForm').elements[f.id].checked]))),
+      { once: true },
+    );
+    validationDialog.showModal();
+  });
+}
+
+const pipeline = createPipeline({
+  store,
+  world,
+  log,
+  bump: (id, key) => sim.bump(id, key),
+  usage: addUsage,
+  trace,
+  setResult,
+  askValidation,
+  onDone: ({ approved, total }) => {
+    dashData = { ready: true, quality: { score: 99.8 - (total - approved) * 0.6, approved, total } };
+    log({ kind: 'info', text: `✔ Ciclo completado: ${approved}/${total} correcciones validadas. Dashboard actualizado.` });
+    openDash('summary');
+  },
+});
+async function runCycle() {
+  if (pipeline.isRunning()) return log({ kind: 'info', text: 'El ciclo ya está en curso.' });
+  $('#intro').hidden = true;
+  dash.hidden = true;
+  sim.setRunning(false);
+  btnPlay.textContent = '▶ Auto';
+  select(null, false);
+  world.focus(null);
+  $('#btnCycle').disabled = true;
+  try {
+    await pipeline.run();
+  } finally {
+    $('#btnCycle').disabled = false;
+  }
+}
+$('#btnCycle').onclick = runCycle;
+document.addEventListener('click', (e) => {
+  const act = e.target.closest('[data-act]')?.dataset.act;
+  if (act === 'run-cycle') runCycle();
+  if (act === 'close-intro') $('#intro').hidden = true;
+  if (act === 'close-dash') dash.hidden = true;
+});
+
 // ---------- arranque ----------
 store.subscribe((state) => {
-  world.rebuild(state);
+  world.rebuild(state, SOURCES);
   renderTree();
   renderDetails();
 });
-world.rebuild(store.get());
+world.rebuild(store.get(), SOURCES);
 renderTree();
-if (brain.isReady()) {
-  // Con el cerebro activo no mezclamos tráfico simulado con el real
-  sim.setRunning(false);
-  btnPlay.textContent = '▶ Auto';
-  log({ kind: 'info', text: 'Cerebro listo 🧠 Escribe un objetivo abajo y mira cómo tu equipo lo resuelve.' });
-} else {
-  log({ kind: 'info', text: 'Modo demo 👋 Configura el ⚙ Cerebro (API key de Anthropic) para que los agentes trabajen de verdad.' });
-  setTimeout(() => sim.cascade(), 1500);
-}
+log({
+  kind: 'info',
+  text: brain.isReady()
+    ? 'Cerebro listo 🧠 Ejecuta el ciclo de datos o pregúntale a la oficina en la barra inferior.'
+    : 'Bienvenido al MVP 👋 Ejecuta el ciclo de datos para ver a los agentes consolidar la información.',
+});
 
 let last = performance.now();
 (function loop(now) {

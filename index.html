@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>3D Agents · Oficina de automatizaciones</title>
+    <title>Treve · Oficina digital (MVP)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Carlito:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/src/style.css" />
@@ -14,34 +14,34 @@
 
     <header class="topbar">
       <div class="brand">
-        <span class="logo">3D</span>
+        <span class="logo">AI</span>
         <div>
-          <h1>3D <span>Agents</span></h1>
-          <small>Oficina de automatizaciones · demo</small>
+          <h1>Treve · <span>Oficina digital</span> <em class="pill">MVP</em></h1>
+          <small>Propuesta de AI Lab School · datos de ejemplo</small>
         </div>
       </div>
       <div class="controls">
-        <button id="btnPlay" class="btn" title="Tráfico automático entre agentes">⏸ Auto</button>
+        <button id="btnCycle" class="btn accent">▶ Ejecutar ciclo de datos</button>
+        <button id="btnDash" class="btn ghost-light">📊 Dashboard</button>
+        <span class="sep"></span>
+        <button id="btnPlay" class="btn" title="Tráfico de ambiente entre agentes">⏸ Auto</button>
         <select id="speed" class="btn" title="Velocidad">
           <option value="0.5">0.5×</option>
           <option value="1" selected>1×</option>
           <option value="2">2×</option>
           <option value="4">4×</option>
         </select>
-        <button id="btnCascade" class="btn accent">▶ Flujo: lanzamiento</button>
-        <button id="btnReport" class="btn">📊 Reporte semanal</button>
-        <span class="sep"></span>
         <button id="btnAddOffice" class="btn">+ Oficina</button>
         <button id="btnAddAgent" class="btn">+ Agente</button>
         <span class="sep"></span>
-        <button id="btnBrain" class="btn ghost-light">⚙ Cerebro</button>
+        <button id="btnBrain" class="btn">⚙ Cerebro</button>
         <details class="menu">
           <summary class="btn">⋯</summary>
           <div class="menu-list">
             <button id="btnOverview">Vista general</button>
             <button id="btnExport">Exportar JSON</button>
             <button id="btnImport">Importar JSON</button>
-            <button id="btnReset" class="danger">Restablecer demo</button>
+            <button id="btnReset" class="danger">Restablecer MVP</button>
           </div>
         </details>
         <input id="importFile" type="file" accept="application/json" hidden />
@@ -67,6 +67,51 @@
         <ol id="feed"></ol>
       </section>
     </div>
+
+    <section id="intro" class="panel intro">
+      <button class="icon-btn close" data-act="close-intro" title="Cerrar">✕</button>
+      <span class="pill">MVP · Oficina digital</span>
+      <h3>Toda la información de Treve, consolidada por agentes</h3>
+      <ol class="steps">
+        <li><b>1</b><div><strong>Fuentes</strong><span>Compaq, Esfera, Monday, bancos y Excel, extraídos sin captura manual</span></div></li>
+        <li><b>2</b><div><strong>Datos consolidados</strong><span>Se normalizan y concilian; un auditor detecta discrepancias y tú las validas</span></div></li>
+        <li><b>3</b><div><strong>Dashboard ejecutivo</strong><span>Salud financiera, retorno de marketing, rentabilidad y riesgo por cliente</span></div></li>
+      </ol>
+      <div class="row">
+        <button class="btn accent" data-act="run-cycle">▶ Ejecutar ciclo de datos</button>
+        <button class="btn" data-act="close-intro">Explorar la oficina</button>
+      </div>
+      <p class="hint">Datos de ejemplo: no contiene información real de Treve.</p>
+    </section>
+
+    <section id="dash" class="panel dash" hidden>
+      <header class="dash-head">
+        <div>
+          <span class="pill">Dashboard ejecutivo</span>
+          <h3 id="dashTitle">Treve</h3>
+        </div>
+        <nav class="tabs" role="tablist">
+          <button role="tab" data-tab="summary" class="on">Resumen</button>
+          <button role="tab" data-tab="trace">Trazabilidad</button>
+          <button role="tab" data-tab="usage">Consumo de IA</button>
+        </nav>
+        <button class="icon-btn close" data-act="close-dash" title="Cerrar">✕</button>
+      </header>
+      <div class="dash-body" id="dashBody"></div>
+      <p class="dash-foot">Datos de ejemplo para el MVP · no corresponden a información real de Treve.</p>
+    </section>
+
+    <dialog id="validationDialog">
+      <form method="dialog" id="validationForm">
+        <span class="pill">Validación humana</span>
+        <h3>El auditor necesita tu aprobación</h3>
+        <p class="hint">Antes de publicar en el dashboard, revisa las correcciones propuestas. Las que rechaces quedarán como observadas.</p>
+        <div id="findings" class="findings"></div>
+        <menu>
+          <button value="ok" class="btn accent">Confirmar decisiones</button>
+        </menu>
+      </form>
+    </dialog>
 
     <dialog id="officeDialog">
       <form method="dialog" id="officeForm">
@@ -105,7 +150,7 @@
 
     <form id="cmdForm" class="cmdbar" autocomplete="off">
       <button type="button" id="brainStatus" class="brain-status" title="Configurar cerebro"></button>
-      <input id="cmdInput" placeholder="Dale un objetivo a tu equipo…" />
+      <input id="cmdInput" placeholder="Pregúntale a la oficina…" />
       <button class="btn accent" type="submit"><span class="idle">Enviar</span><span class="spin">Trabajando…</span></button>
     </form>
 

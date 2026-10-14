@@ -2,6 +2,7 @@
 // con tool use. Cada agente de la organización es una herramienta a la que puede delegar,
 // y además puede llamar a cualquier API con la herramienta http_request.
 import Anthropic from '@anthropic-ai/sdk';
+import { PROJECT } from './project.js';
 
 const SETTINGS_KEY = '3d-agents:brain';
 
@@ -98,7 +99,7 @@ function parseJson(text, fallback = {}) {
   }
 }
 
-export function createBrain({ store, world, log, bump, onUsage }) {
+export function createBrain({ store, world, log, bump, onUsage, onResult }) {
   let settings = loadSettings();
   let busy = false;
   const history = []; // pares objetivo/respuesta (solo texto) para dar contexto entre peticiones
@@ -106,17 +107,17 @@ export function createBrain({ store, world, log, bump, onUsage }) {
   const client = (apiKey) => new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
 
   // Un pedido a Claude + contabilidad de costo
-  async function callClaude(apiKey, params) {
+  async function callClaude(apiKey, params, agentId) {
     const res = await client(apiKey).messages.create(params);
-    onUsage?.(cost(params.model, res.usage), res.usage);
+    onUsage?.(cost(params.model, res.usage), res.usage, agentId);
     if (res.stop_reason === 'refusal') throw new Error('El modelo rechazó la petición.');
     return res;
   }
 
   // Bucle de herramientas genérico (lo usan el cerebro y los agentes tipo Claude)
-  async function toolLoop({ apiKey, model, system, messages, tools, runTool, maxSteps, onText }) {
+  async function toolLoop({ apiKey, model, system, messages, tools, runTool, maxSteps, onText, agentId }) {
     for (let step = 0; step < maxSteps; step++) {
-      const res = await callClaude(apiKey, { model, max_tokens: 4096, system, tools, messages });
+      const res = await callClaude(apiKey, { model, max_tokens: 4096, system, tools, messages }, agentId);
       const text = res.content.filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();
       if (text) onText?.(text, res.stop_reason);
       if (res.stop_reason !== 'tool_use') return text || '(sin respuesta)';
@@ -166,7 +167,7 @@ export function createBrain({ store, world, log, bump, onUsage }) {
     const c = agent.config || {};
     const office = store.office(agent.officeId)?.name || '';
     const llmSystem =
-      (c.system || `Eres "${agent.name}", ${agent.role || 'un agente'} en el departamento ${office}.`) +
+      (c.system || `Eres "${agent.name}", ${agent.role || 'un agente'}, en "${office}" de la oficina digital de ${PROJECT.client}.`) +
       ' Responde en español, breve y concreto. Si necesitas datos reales usa http_request.';
 
     if (agent.provider === 'claude') {
@@ -178,6 +179,7 @@ export function createBrain({ store, world, log, bump, onUsage }) {
         tools: [HTTP_TOOL],
         runTool: (name, input) => animatedHttp(agent.id, input),
         maxSteps: 4,
+        agentId: agent.id,
       });
     }
 
@@ -192,6 +194,7 @@ export function createBrain({ store, world, log, bump, onUsage }) {
         tools: [HTTP_TOOL],
         runTool: (name, input) => animatedHttp(agent.id, input),
         maxSteps: 3,
+        agentId: agent.id,
       });
       return `[simulado por IA: el agente no tiene endpoint configurado]\n${text}`;
     }
@@ -244,6 +247,7 @@ export function createBrain({ store, world, log, bump, onUsage }) {
             const out = await execAgent(agent, instruction, fromName);
             bump(agent.id, 'sent');
             log({ kind: 'live', from: agent.name, to: fromName, text: out.slice(0, 600) });
+            onResult?.(agent.id, out);
             world.sendPacket(agent.id, fromId, { color: '#ffffff', size: 0.28 });
             resolve(out);
           } catch (err) {
@@ -298,7 +302,8 @@ export function createBrain({ store, world, log, bump, onUsage }) {
       `Eres ${boss?.name || 'el Orquestador'}, el cerebro de una organización de agentes de automatización. ` +
       'Tu trabajo es cumplir el objetivo del usuario delegando en los agentes adecuados (puedes llamar a varios en paralelo) ' +
       'y usando http_request cuando necesites datos de una API. Delegar cuesta dinero: usa solo los agentes necesarios. ' +
-      'Cuando termines, responde al usuario en español con un resumen claro del resultado.\n\nOrganigrama:\n' +
+      'Cuando termines, responde al usuario en español con un resumen claro del resultado.\n\n' +
+      `Contexto: ${PROJECT.context}\n\nOrganigrama:\n` +
       orgChart();
 
     log({ kind: 'task', from: 'Tú', to: boss?.name || 'Cerebro', text: goal });
@@ -313,6 +318,7 @@ export function createBrain({ store, world, log, bump, onUsage }) {
         messages,
         tools,
         maxSteps: settings.maxSteps || 8,
+        agentId: bossId,
         onText: (text, stop) => stop === 'tool_use' && log({ kind: 'brain', from: boss?.name || 'Cerebro', to: 'plan', text }),
         runTool: (name, input) => {
           if (name === 'http_request') return animatedHttp(bossId, input);
@@ -323,6 +329,7 @@ export function createBrain({ store, world, log, bump, onUsage }) {
       });
       history.push({ role: 'user', content: goal }, { role: 'assistant', content: answer });
       log({ kind: 'final', from: boss?.name || 'Cerebro', to: 'Tú', text: answer });
+      if (boss) onResult?.(boss.id, answer);
       if (boss) world.sendPacket(boss.id, 'user', { color: '#ffffff' });
       return answer;
     } finally {

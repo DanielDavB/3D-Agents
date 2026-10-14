@@ -1,13 +1,37 @@
-# 3D Agents · Oficina de automatizaciones
+# Treve · Oficina digital (MVP)
 
-Visualizador 3D de agentes de automatización que trabajan de verdad. Hay una **Oficina Principal** de la que salen
-otras oficinas (Project Manager, Marketing, Ventas, Soporte, Desarrollo…). Cada oficina tiene agentes
-conectados a distintos proveedores (Claude API, n8n, Make, Zapier, OpenAI o una API HTTP genérica), y
-sus mensajes se ven como paquetes de luz que viajan entre ellos.
+MVP de AI Lab School para la propuesta de automatización y consolidación de información de Treve.
+Muestra en 3D una **oficina digital de agentes**: cada fuente de datos (Compaq, Esfera, Monday, estados
+bancarios y Excel) tiene un agente que la extrae; la información se consolida y revisa, una persona valida
+las correcciones relevantes y un dashboard ejecutivo presenta los indicadores con trazabilidad y consumo de tokens.
 
-> Con una API key de Anthropic, el Orquestador funciona como **cerebro** (Claude Haiku 4.5 por defecto):
-> entiende tu objetivo, delega en los agentes y llama a cualquier API. Sin key, funciona en modo demo
-> con tráfico simulado. Ver "Cerebro con IA".
+> **Datos de ejemplo.** Todas las cifras, documentos y clientes del MVP son ficticios: no contiene
+> información real de Treve.
+
+## Arquitectura que muestra el MVP
+
+| Capa | Oficina en 3D | Agentes |
+|---|---|---|
+| Centro de mando | Centro de mando | Orquestador (coordina todo), Bitácora (trazabilidad) |
+| 1 · Fuentes | Capa 1 · Fuentes | Agente Compaq, Esfera, Monday, Bancos y Excel, conectados a sus fuentes |
+| 2 · Datos consolidados | Capa 2 · Datos consolidados | Normalizador, Conciliador, Almacén central |
+| Revisión | Revisión y control (dentro de la capa 2) | Auditor de calidad, Control de cambios + **validación humana** |
+| 3 · Dashboard ejecutivo | Capa 3 · Dashboard ejecutivo | Analista financiero, comercial y de clientes |
+
+### Ciclo de datos (botón **▶ Ejecutar ciclo de datos**)
+
+1. El Orquestador pide a cada agente de la capa 1 que extraiga su fuente; los documentos viajan de la fuente al agente.
+2. El Normalizador unifica catálogos y el Conciliador cruza ventas ↔ facturas ↔ pagos ↔ bancos.
+3. El Auditor detecta 3 discrepancias (factura duplicada, depósito sin factura, fórmula rota) y **te pide validarlas**.
+4. Las correcciones aprobadas se registran en Control de cambios y se publican en el Almacén central.
+5. Los analistas calculan indicadores y entregan conclusiones; el dashboard se abre con los resultados.
+
+### Dashboard ejecutivo
+
+- **Resumen:** ingresos, flujo neto, cartera vencida y calidad de datos; ingresos vs egresos; retorno de marketing
+  por canal; rentabilidad y riesgo de pérdida por cliente; conclusiones de los agentes.
+- **Trazabilidad:** cada documento con su fuente, agente, registros y estado, y las decisiones de validación humana.
+- **Consumo de IA:** tokens y costo por agente (estimados en el ciclo de ejemplo; reales cuando se usa el cerebro).
 
 ## Ejecutar
 
@@ -24,21 +48,16 @@ compila con Vite y sube `dist/` a la rama `gh-pages`).
 
 ## Qué puedes hacer
 
-- **Ver la organización en 3D**: arrastra para rotar, rueda para hacer zoom, clic en una oficina o agente para enfocarlo.
-- **Crear oficinas** (`+ Oficina`): nombre, color y de qué oficina dependen. Se pueden anidar (ej. *Redes Sociales* dentro de *Marketing*).
-- **Crear agentes** (`+ Agente`): nombre, rol, oficina y conector, con sus campos (API key, modelo, URL de webhook…).
-- **Ver cómo se comunican**:
-  - `Auto`: tráfico aleatorio entre agentes (jefe → equipo, compañeros, reportes hacia arriba).
-  - `Flujo: lanzamiento`: tú le das una orden al orquestador, él la reparte a cada departamento y cada líder a su equipo; las respuestas regresan.
-  - `Reporte semanal`: todos los agentes reportan a la Oficina Principal y ésta te envía el resumen.
-  - Desde el panel de un agente puedes enviarle una instrucción propia.
-- **Exportar / importar** la organización como JSON (menú `⋯`). Todo se guarda automáticamente en el navegador.
-
-Los mensajes entre oficinas viajan por la jerarquía: agente → hub de su oficina → hubs intermedios → hub destino → agente.
+- **Explorar la oficina en 3D**: arrastra para rotar, rueda para hacer zoom; clic en una oficina, agente o fuente para ver su detalle y su último resultado.
+- **Ejecutar el ciclo de datos** y validar las correcciones del auditor.
+- **Abrir el dashboard** (📊) con sus pestañas de resumen, trazabilidad y consumo.
+- **Editar la organización**: crear oficinas y agentes, cambiar conectores; exportar / importar como JSON (menú `⋯`).
+- **Auto**: tráfico de ambiente entre agentes para que la oficina se vea viva.
+- **Preguntarle a la oficina** con IA real (barra inferior, requiere configurar el cerebro).
 
 ## Cerebro con IA (funcionamiento real)
 
-El agente **Orquestador** de la Oficina Principal es el cerebro. Usa Claude con *tool use*:
+El agente **Orquestador** del Centro de mando es el cerebro. Usa Claude con *tool use*:
 cada agente de la organización es una herramienta a la que puede delegar, y además tiene
 `http_request` para llamar a **cualquier API**. Todo lo que hace se ve en 3D: paquetes naranjas
 (tareas) hacia los agentes, blancos (respuestas) de vuelta, y viajes al globo **APIs externas**
@@ -47,8 +66,8 @@ en cada petición HTTP.
 1. Pulsa **⚙ Cerebro** y pega tu API key de Anthropic ([console.anthropic.com](https://console.anthropic.com)).
 2. Elige el modelo: **Claude Haiku 4.5** (por defecto, el más barato: $1 / $5 por millón de tokens
    de entrada / salida) o Claude Sonnet 5.5 si necesitas más capacidad.
-3. Escribe un objetivo en la barra inferior, p. ej. *"Consulta el clima de CDMX en
-   https://wttr.in/CDMX?format=j1 y pide a Marketing un post con esos datos"*.
+3. Escribe una petición en la barra inferior, p. ej. *"Pide al Analista de clientes y al financiero
+   un plan de cobranza para los clientes en riesgo alto"*. El cerebro conoce el contexto del proyecto.
 
 La barra muestra el gasto acumulado de la sesión. Una tarea típica con Haiku cuesta menos de un centavo de dólar.
 
@@ -99,11 +118,14 @@ en las esquinas. Los tokens están al inicio de `src/style.css`; los colores de 
 
 ```
 index.html          UI (barra superior, paneles, diálogos)
-src/main.js         Conecta estado, escena, simulación y UI
-src/state.js        Oficinas + agentes, datos de ejemplo, persistencia
+src/main.js         Conecta estado, escena, ciclo, dashboard y UI
+src/project.js      Configuración del MVP: organización, fuentes, documentos, hallazgos y datos de ejemplo
+src/pipeline.js     Ciclo de datos de demostración con validación humana
+src/dashboard.js    Dashboard ejecutivo, trazabilidad y consumo de IA (gráficas SVG)
+src/state.js        Estado y persistencia en el navegador
 src/world.js        Escena Three.js: oficinas, agentes, corredores, paquetes, cámara
 src/brain.js        Cerebro: bucle de tool use con Claude, delegación, http_request y costo
-src/sim.js          Simulación de conversaciones (modo demo)
+src/sim.js          Tráfico de ambiente (modo Auto)
 src/connectors.js   Catálogo de proveedores y sus campos
 proxy/              Proxy CORS (Cloudflare Worker + versión Node)
 src/style.css       Estilos
@@ -112,8 +134,10 @@ src/style.css       Estilos
 Para añadir un proveedor nuevo, agrega una entrada en `PROVIDERS` (`src/connectors.js`) con `label`, `color`
 y `fields`, y su ejecución en `execAgent` (`src/brain.js`).
 
-## Siguientes pasos posibles
+## Del MVP a producción
 
-- Backend (Node/Supabase) que reciba eventos reales de n8n/Claude por webhook y los emita a la escena por WebSocket.
-- Flujos definidos por el usuario (quién delega a quién) en lugar de escenarios fijos.
-- Métricas por agente (latencia, costo, errores) y avatares/modelos 3D personalizados.
+- Levantamiento de fuentes: mapear de dónde viene cada dato, cómo se transforma y quién interviene.
+- Conectar los agentes de la capa 1 a Compaq, Esfera, Monday, bancos y Excel (n8n o API) y programar el ciclo.
+- Almacén central en la nube (por ejemplo, Supabase) con permisos, versiones y bitácora de cambios.
+- Backend que guarde las keys y emita los eventos reales a la escena por WebSocket.
+- Indicadores definitivos acordados con dirección; información sensible bajo NDA.
