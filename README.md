@@ -1,7 +1,7 @@
 # Treve · Oficina digital (MVP)
 
 MVP de AI Lab School para la propuesta de automatización y consolidación de información de Treve.
-Muestra en 3D una **oficina digital de agentes**: cada fuente de datos (Compaq, Esfera, Monday, estados
+Muestra en 3D una **oficina digital de agentes**: cada departamento es una oficina con escritorios y cada agente un oficinista trabajando en su computadora; cada fuente de datos (Compaq, Esfera, Monday, estados
 bancarios y Excel) tiene un agente que la extrae; la información se consolida y revisa, una persona valida
 las correcciones relevantes y un dashboard ejecutivo presenta los indicadores con trazabilidad y consumo de tokens.
 
@@ -123,7 +123,8 @@ src/project.js      Configuración del MVP: organización, fuentes, documentos, 
 src/pipeline.js     Ciclo de datos de demostración con validación humana
 src/dashboard.js    Dashboard ejecutivo, trazabilidad y consumo de IA (gráficas SVG)
 src/state.js        Estado y persistencia en el navegador
-src/world.js        Escena Three.js: oficinas, agentes, corredores, paquetes, cámara
+src/world.js        Escena Three.js: distribución, fuentes, corredores, paquetes, cámara
+src/props.js        Modelos 3D: salas de oficina y oficinistas en su escritorio
 src/brain.js        Cerebro: bucle de tool use con Claude, delegación, http_request y costo
 src/sim.js          Tráfico de ambiente (modo Auto)
 src/connectors.js   Catálogo de proveedores y sus campos

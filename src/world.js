@@ -6,7 +6,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
-import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { buildRoom, buildWorkstation, FLOOR_Y, WALL_H } from './props.js';
 import { provider } from './connectors.js';
 
 const RING = 30; // distancia entre niveles del árbol de oficinas
@@ -75,7 +75,7 @@ export function createWorld(container, { onSelect } = {}) {
 
   // Lente larga: perspectiva casi isométrica, más limpia
   const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 800);
-  camera.position.set(0, 100, 128);
+  camera.position.set(0, 86, 110);
 
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
@@ -165,137 +165,79 @@ export function createWorld(container, { onSelect } = {}) {
   let selectedId = null;
 
   // ---------- construcción ----------
-  // Contorno redondeado (para el borde luminoso de cada plataforma)
-  function roundedOutline(w, d, r, y) {
-    const pts = [];
-    const corners = [
-      [w / 2 - r, d / 2 - r, 0],
-      [-w / 2 + r, d / 2 - r, Math.PI / 2],
-      [-w / 2 + r, -d / 2 + r, Math.PI],
-      [w / 2 - r, -d / 2 + r, Math.PI * 1.5],
-    ];
-    for (const [cx, cz, a0] of corners) {
-      for (let k = 0; k <= 8; k++) {
-        const a = a0 + (k / 8) * (Math.PI / 2);
-        pts.push(new THREE.Vector3(cx + Math.cos(a) * r, y, cz + Math.sin(a) * r));
-      }
-    }
-    pts.push(pts[0].clone());
-    return new THREE.BufferGeometry().setFromPoints(pts);
-  }
-
   function buildOffice(office, p, agents, isRoot) {
     const g = new THREE.Group();
     g.position.set(p.x, 0, p.z);
     const n = agents.length;
-    const cols = Math.max(1, Math.ceil(Math.sqrt(n)));
+    const cols = Math.max(1, n <= 2 ? n : Math.ceil(Math.sqrt(n)));
     const rows = Math.max(1, Math.ceil(n / cols));
-    const size = Math.max(isRoot ? 16 : 12, cols * 5.5 + 5);
-    const depthSize = Math.max(isRoot ? 16 : 11, rows * 5 + 5);
+    const cellW = 5.2;
+    const cellD = 4.4;
+    const width = Math.max(isRoot ? 15 : 11, cols * cellW + 3.5);
+    const depth = Math.max(isRoot ? 13 : 10, rows * cellD + 4);
     const color = new THREE.Color(office.color || '#e8600c');
 
-    // Mira hacia el centro del mapa
-    if (!isRoot) g.rotation.y = -p.angle - Math.PI / 2;
+    // Sala del departamento: piso, alfombra, paredes en L, ventanas, planta
+    const room = buildRoom({ width, depth, color: office.color || '#e8600c', isRoot });
+    room.base.userData.officeId = office.id;
+    pickables.push(room.base);
+    g.add(room.group);
 
-    // Plataforma flotante de esquinas redondeadas
-    const base = new THREE.Mesh(
-      new RoundedBoxGeometry(size, 0.7, depthSize, 4, 0.6),
-      new THREE.MeshStandardMaterial({ color: '#151515', roughness: 0.85, metalness: 0.05 }),
-    );
-    base.position.y = 0.35;
-    base.receiveShadow = true;
-    base.castShadow = true;
-    base.userData.officeId = office.id;
-    g.add(base);
-    pickables.push(base);
-
-    // Borde luminoso fino
-    const edge = new THREE.Line(roundedOutline(size - 0.5, depthSize - 0.5, 0.9, 0.72), new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.9 }));
-    g.add(edge);
-
-    // Hub: punto discreto por donde pasan los mensajes
-    const hub = new THREE.Mesh(new THREE.SphereGeometry(isRoot ? 0.45 : 0.28, 16, 12), new THREE.MeshBasicMaterial({ color }));
+    // Hub: punto discreto sobre la sala por donde pasan los mensajes
+    const hub = new THREE.Mesh(new THREE.SphereGeometry(isRoot ? 0.4 : 0.26, 16, 12), new THREE.MeshBasicMaterial({ color }));
     hub.position.set(0, HUB_Y, 0);
     g.add(hub);
 
-    if (isRoot) {
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(size * 0.62, 0.03, 6, 96), new THREE.MeshBasicMaterial({ color: '#e8600c', transparent: true, opacity: 0.3 }));
-      ring.rotation.x = Math.PI / 2;
-      ring.position.y = 0.05;
-      g.add(ring);
-    }
-
     const tag = label(`<span class="dot" style="background:${office.color}"></span>${office.name}`, 'label office-label');
-    tag.position.set(0, 1.1, -depthSize / 2 - 0.2);
+    tag.position.set(0, FLOOR_Y + WALL_H + 0.9, -depth / 2);
     tag.element.dataset.officeId = office.id;
     tag.element.addEventListener('click', () => onSelect?.({ type: 'office', id: office.id }));
     g.add(tag);
 
-    // Agentes en cuadrícula
+    // Puestos de trabajo en cuadrícula; los escritorios de cada lado se miran entre sí
     agents.forEach((agent, i) => {
       const c = i % cols;
       const r = Math.floor(i / cols);
-      const x = (c - (cols - 1) / 2) * 5.5;
-      const z = (r - (rows - 1) / 2) * 5 + 0.6;
-      g.add(buildAgent(agent, office, x, z));
+      const x = (c - (cols - 1) / 2) * cellW + 0.4;
+      const z = (r - (rows - 1) / 2) * cellD + 0.9;
+      const faceDir = cols === 1 ? 1 : x < 0.5 ? 1 : -1;
+      g.add(buildAgent(agent, office, x, z, faceDir));
     });
 
     world.add(g);
     g.updateMatrixWorld(true);
     officeViews.set(office.id, {
-      group: g, hub, hubWorld: hub.getWorldPosition(new THREE.Vector3()), color, parentId: office.parentId, base,
-      size: Math.max(size, depthSize),
+      group: g, hub, hubWorld: hub.getWorldPosition(new THREE.Vector3()), color, parentId: office.parentId, base: room.base,
+      size: Math.max(width, depth),
     });
   }
 
-  // Agente: cápsula limpia con anillo del color de su conector
-  function buildAgent(agent, office, x, z) {
+  // Oficinista en su escritorio
+  function buildAgent(agent, office, x, z, faceDir = 1) {
     const prov = provider(agent.provider);
-    const pColor = new THREE.Color(prov.color);
-    const g = new THREE.Group();
-    g.position.set(x, 0.7, z);
-
-    const body = new THREE.Mesh(
-      new THREE.CapsuleGeometry(0.55, 0.7, 8, 20),
-      new THREE.MeshStandardMaterial({ color: '#efefef', roughness: 0.45, metalness: 0, emissive: pColor, emissiveIntensity: 0 }),
-    );
-    body.position.y = 1.1;
-    body.castShadow = true;
-    g.add(body);
-
-    const band = new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.07, 10, 40), new THREE.MeshBasicMaterial({ color: pColor }));
-    band.rotation.x = Math.PI / 2;
-    band.position.y = 1.15;
-    g.add(band);
-
-    const halo = new THREE.Mesh(new THREE.RingGeometry(0.85, 0.95, 48), new THREE.MeshBasicMaterial({ color: pColor, transparent: true, opacity: 0.35, depthWrite: false, side: THREE.DoubleSide }));
-    halo.rotation.x = -Math.PI / 2;
-    halo.position.y = 0.02;
-    g.add(halo);
-
-    const select = new THREE.Mesh(new THREE.RingGeometry(1.15, 1.25, 48), new THREE.MeshBasicMaterial({ color: '#ffffff', side: THREE.DoubleSide }));
-    select.rotation.x = -Math.PI / 2;
-    select.position.y = 0.03;
-    select.visible = false;
-    g.add(select);
+    const ws = buildWorkstation(agent.id, prov.color);
+    const g = ws.group;
+    g.position.set(x, FLOOR_Y, z);
+    g.rotation.y = (faceDir * Math.PI) / 2;
 
     const anchor = new THREE.Object3D();
-    anchor.position.set(0, 2.3, 0);
+    anchor.position.set(0, 2.9, 0);
     g.add(anchor);
 
     const tag = label(`<b>${agent.name}</b><span class="prov">${prov.short}</span>`, 'label agent-label');
-    tag.position.set(0, 2.75, 0);
+    tag.position.set(0, 3.25, 0);
     tag.element.addEventListener('click', () => onSelect?.({ type: 'agent', id: agent.id }));
     g.add(tag);
 
-    [body, band].forEach((m) => {
+    ws.pickables.forEach((m) => {
       m.userData.agentId = agent.id;
       pickables.push(m);
     });
 
     agentViews.set(agent.id, {
       id: agent.id,
-      group: g, halo, body, head: band, select, anchor, officeId: office.id, pulse: 0, phase: Math.random() * 6, tag,
+      group: g, ...ws, anchor, officeId: office.id, pulse: 0, phase: Math.random() * 6, tag,
+      baseScreen: ws.screenMat.color.clone(),
     });
     return g;
   }
@@ -325,8 +267,9 @@ export function createWorld(container, { onSelect } = {}) {
   function clear() {
     scene.remove(world);
     world.traverse((o) => {
-      o.geometry?.dispose?.();
-      if (o.material && !Array.isArray(o.material)) o.material.dispose();
+      // Las geometrías y materiales compartidos (userData.keep) se reutilizan entre reconstrucciones
+      if (o.geometry && !o.geometry.userData.keep) o.geometry.dispose();
+      if (o.material && !Array.isArray(o.material) && !o.material.userData.keep) o.material.dispose();
     });
     world = new THREE.Group();
     scene.add(world);
@@ -583,7 +526,7 @@ export function createWorld(container, { onSelect } = {}) {
   }
 
   function focus(sel) {
-    if (!sel) return flyTo(new THREE.Vector3(0, 0, camera.aspect < 1 ? 22 : 0), 165 * portraitZoom());
+    if (!sel) return flyTo(new THREE.Vector3(0, 0, camera.aspect < 1 ? 22 : 12), 142 * portraitZoom());
     if (sel.type === 'agent') {
       const v = agentViews.get(sel.id);
       if (v) flyTo(v.group.getWorldPosition(new THREE.Vector3()), 28);
@@ -620,11 +563,10 @@ export function createWorld(container, { onSelect } = {}) {
     if (firstResize) {
       firstResize = false;
       camera.position.multiplyScalar(portraitZoom());
-      if (camera.aspect < 1) {
-        // Sube la escena en pantalla para que no quede detrás del panel de actividad
-        controls.target.set(0, 0, 22);
-        camera.position.z += 22;
-      }
+      // Sube la escena en pantalla para que las fuentes no queden detrás de la barra inferior
+      const shift = camera.aspect < 1 ? 22 : 12;
+      controls.target.set(0, 0, shift);
+      camera.position.z += shift;
     }
   }
   window.addEventListener('resize', resize);
@@ -648,10 +590,14 @@ export function createWorld(container, { onSelect } = {}) {
     for (const v of agentViews.values()) {
       v.pulse = Math.max(0, v.pulse - rawDt * 0.9);
       if (working.has(v.id)) v.pulse = Math.max(v.pulse, 0.45 + Math.sin(time * 6) * 0.25);
-      const bob = Math.sin(time * 1.6 + v.phase) * 0.06;
-      v.body.position.y = 1.1 + bob;
-      v.head.position.y = 1.15 + bob;
-      v.body.material.emissiveIntensity = v.pulse * 0.9;
+      // Respiración en reposo; al trabajar teclea y mueve la cabeza
+      const busy = working.has(v.id);
+      v.torso.scale.y = 1 + Math.sin(time * 2 + v.phase) * 0.015;
+      v.arms.forEach((a, k) => (a.rotation.x = -1.0 + (busy ? Math.sin(time * 18 + k * Math.PI) * 0.08 : 0)));
+      v.headGroup.rotation.x = busy ? Math.sin(time * 3) * 0.06 : Math.sin(time * 0.7 + v.phase) * 0.03;
+      v.headGroup.rotation.y = busy ? 0 : Math.sin(time * 0.4 + v.phase) * 0.25;
+      v.torso.material.emissiveIntensity = v.pulse * 0.35;
+      v.screenMat.color.copy(v.baseScreen).multiplyScalar(1 + v.pulse * 2.4);
       v.halo.scale.setScalar(1 + v.pulse * 0.9);
       v.halo.material.opacity = 0.35 + v.pulse * 0.6;
       // Nombres solo al acercarte, al pasar el cursor, al seleccionar o mientras trabaja
