@@ -118,7 +118,7 @@ ser necesario para el MVP; queda como opción si algún día un agente necesita 
 ## Estado
 | Fase | Estado |
 |---|---|
-| 0 · Preparación | Pendiente (Daniel) |
+| 0 · Preparación | En curso: proyecto de Supabase creado y esquema aplicado |
 | 1 · Simulador de fuentes | Hecha (falta revisión de Daniel) |
 | 2 · Orquestador | En curso |
 | 3 · Visualizador | Pendiente |
