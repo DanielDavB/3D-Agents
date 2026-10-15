@@ -10,7 +10,7 @@
 n8n (simula Monday, Compaq, Esfera y Bancos)
         │  archivos: JSON · Excel · CSV
         ▼
-ORQUESTADOR CENTRAL (droplet)
+ORQUESTADOR CENTRAL (Supabase Edge Functions + cola en Postgres)
   ├─ Extracción   → descarga y lee cada fuente
   ├─ Llenado      → genera el Excel "Reporte de ventas" con el formato de Treve
   ├─ Conciliación → ventas ↔ facturas ↔ pagos ↔ banco (código + JEV + OpenAI)
@@ -20,8 +20,24 @@ ORQUESTADOR CENTRAL (droplet)
   └─ Alertas      → discrepancias, fuentes atrasadas, indicadores fuera de rango
         │
         ▼
-Visualizador 3D + dashboard (anima lo que el orquestador hace de verdad)
+Visualizador 3D + dashboard en GitHub Pages (Supabase Realtime + login con Google)
 ```
+
+## Plataforma: Supabase para todo lo posible
+| Necesidad | Servicio de Supabase |
+|---|---|
+| Base de datos (corridas, almacén, hallazgos, bitácora, memoria) | Postgres, esquema `treve` con RLS |
+| Orquestador y agentes | Edge Functions; cada agente es un paso corto de una cola (`treve.tareas`) |
+| Ciclo programado y reintentos | `pg_cron` + `pg_net` |
+| Archivos de fuentes y Excel generados | Storage, bucket privado `treve-archivos` |
+| Eventos en vivo hacia el 3D | Realtime sobre `treve.eventos`, `treve.corridas`, `treve.hallazgos` |
+| Login con Google y cuentas autorizadas | Auth (proveedor Google) + tabla `treve.miembros` |
+| Validación humana | Función `treve.resolver_hallazgo` (solo revisores) |
+| Keys de OpenAI, JEV y token del simulador | Secrets de Edge Functions |
+
+Las Edge Functions tienen límite de 150 s por llamada y 2 s de CPU, por eso el orquestador divide el
+trabajo en tareas pequeñas (una por agente y fuente) que se encadenan por la cola. El droplet deja de
+ser necesario para el MVP; queda como opción si algún día un agente necesita procesos largos.
 
 **Reparto de responsabilidades**
 - **Código:** extrae, suma, cruza y calcula indicadores. Mismo dato de entrada, mismo resultado.
@@ -36,8 +52,8 @@ Visualizador 3D + dashboard (anima lo que el orquestador hace de verdad)
 |---|---|---|
 | 0.1 | Regenerar la API key de JEV y guardarla en una credencial de n8n (hoy está en texto plano en "JEV Router") | La key vieja ya no funciona |
 | 0.2 | API key de OpenAI con límite de gasto | Guardada fuera del chat y del repo |
-| 0.3 | Droplet en DigitalOcean (1 GB, Ubuntu) con acceso por SSH | Puedes entrar por SSH |
-| 0.4 | Subdominio (p. ej. `agentes.tudominio.com`) apuntando a la IP del droplet | El subdominio resuelve a la IP |
+| 0.3 | Proyecto de Supabase para Treve y el esquema `treve` en *Exposed schemas* (Settings → API) | La API responde sobre `treve` |
+| 0.4 | Proveedor Google activado en Supabase Auth (cliente OAuth de Google Cloud) | Puedes iniciar sesión con Google |
 | 0.5 | Confirmar con JEV/TypeSafe precio, límites y política de datos | Costo por llamada conocido |
 
 ## Fase 1 · Simulador de fuentes en n8n (~1–2 días)
@@ -54,11 +70,11 @@ Visualizador 3D + dashboard (anima lo que el orquestador hace de verdad)
 ## Fase 2 · Orquestador y pipeline en local (~4–6 días)
 | # | Paso | Listo cuando… |
 |---|---|---|
-| 2.1 | Backend en `server/` (Node, SQLite, `.env`) | Arranca en local |
-| 2.2 | Orquestador central: eventos → memoria → decisión → delegación → bitácora | Cada paso queda en la bitácora |
+| 2.1 | Esquema `treve` en Supabase (`supabase/migrations/`) y lógica compartida en `supabase/functions/_shared/` probada con Node | Migración aplicada y pruebas en verde |
+| 2.2 | Orquestador central (Edge Function `orquestador`): toma tareas de la cola, delega al agente y escribe la bitácora | Cada paso queda en `treve.eventos` |
 | 2.3 | Módulo JEV y módulo cerebro intercambiable (OpenAI por defecto) | Ambos responden JSON validado |
 | 2.4 | Extracción: conectores a los 4 webhooks del simulador | Descarga y lee los 4 archivos |
-| 2.5 | Llenado: Excel "Reporte de ventas" con formato tipo Treve | El .xlsx abre bien en Excel |
+| 2.5 | Llenado: Excel "Reporte de ventas" con formato tipo Treve, guardado en Storage | El .xlsx abre bien en Excel |
 | 2.6 | Conciliación: cruces exactos en código, JEV para clasificar y OpenAI para emparejar nombres | Encuentra las discrepancias sembradas |
 | 2.7 | Validación humana con reglas fijas | Las discrepancias dudosas esperan decisión |
 | 2.8 | Almacén con versiones e indicadores calculados en código | Indicadores idénticos entre corridas |
@@ -70,18 +86,18 @@ Visualizador 3D + dashboard (anima lo que el orquestador hace de verdad)
 ## Fase 3 · Visualizador conectado al motor real (~2–3 días)
 | # | Paso | Listo cuando… |
 |---|---|---|
-| 3.1 | Eventos en tiempo real del orquestador hacia el 3D | Cada paso real se anima |
+| 3.1 | Eventos en tiempo real (Supabase Realtime) del orquestador hacia el 3D | Cada paso real se anima |
 | 3.2 | Oficinas, agentes y fuentes del pipeline real | El 3D refleja lo que de verdad pasa |
 | 3.3 | Validación humana desde el 3D | La decisión cambia el resultado |
 | 3.4 | Dashboard con datos del almacén, trazabilidad y consumo real | Cifras iguales al Excel consolidado |
-| 3.5 | Login con Google (solo cuentas autorizadas) | Nadie más entra |
+| 3.5 | Login con Google vía Supabase Auth (solo cuentas en `treve.miembros`) | Nadie más entra |
 
-## Fase 4 · Despliegue en el droplet (~1 día)
+## Fase 4 · Puesta en marcha en Supabase (~1 día)
 | # | Paso | Listo cuando… |
 |---|---|---|
-| 4.1 | Docker Compose + Caddy (HTTPS automático) + script de instalación | Instalación con un comando |
-| 4.2 | Instalar y cargar las keys en el `.env` del servidor (Daniel, con guía) | `https://agentes.<dominio>` abre el panel |
-| 4.3 | Ciclo programado y respaldo diario | Corre y se respalda solo |
+| 4.1 | Desplegar las Edge Functions y cargar los secrets (Daniel, con guía) | Una corrida manual termina sin errores |
+| 4.2 | Ciclo programado con `pg_cron` y reintentos de tareas fallidas | Corre solo cada día |
+| 4.3 | Respaldo: exportación diaria del consolidado a Storage | Hay un archivo por día |
 | 4.4 | Alertas por correo (WhatsApp opcional vía n8n como agente) | Llega el resumen del ciclo |
 
 ## Fase 5 · Demo y propuesta (Daniel + Max, ~1–2 días)
@@ -97,14 +113,14 @@ Visualizador 3D + dashboard (anima lo que el orquestador hace de verdad)
 2. Sustituir cada conector simulado por el real (sin tocar el orquestador).
 3. Modo sombra con datos reales, ajuste de criterios y producción.
 
-**Estimado total:** 2 a 3 semanas. Las fases 1 y 2 no dependen de la preparación de la fase 0.
+**Estimado total:** 2 a 3 semanas. Las fases 1 y 2 no dependen de la preparación de la fase 0, salvo el proyecto de Supabase (0.3).
 
 ## Estado
 | Fase | Estado |
 |---|---|
 | 0 · Preparación | Pendiente (Daniel) |
-| 1 · Simulador de fuentes | En curso |
-| 2 · Orquestador | Pendiente |
+| 1 · Simulador de fuentes | Hecha (falta revisión de Daniel) |
+| 2 · Orquestador | En curso |
 | 3 · Visualizador | Pendiente |
-| 4 · Droplet | Pendiente |
+| 4 · Puesta en marcha | Pendiente |
 | 5 · Demo | Pendiente |
