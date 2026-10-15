@@ -1,0 +1,15 @@
+{
+  "name": "treve-oficina-server",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Orquestador central de la oficina de agentes (MVP Treve) y simulador de fuentes.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "sim:sample": "node scripts/sample.js",
+    "sim:n8n": "node scripts/build-n8n-code.js"
+  }
+}
