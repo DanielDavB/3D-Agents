@@ -6,7 +6,16 @@ Proyecto: **Treve Oficina** (`lpwohzbminesrjjnjdqi`, us-east-1) · API: `https:/
 - `functions/treve/`: el orquestador. `index.ts` enruta y ejecuta la cola; `lib/` es lógica pura
   (normalizar, conciliar, juicio, indicadores, reporte, cerebro) que también prueban `server/test/`.
 
-## Desplegar (una vez)
+## Estado actual
+Desplegado el 29-oct-2026: migraciones aplicadas, `pg_cron` activo y la Edge Function `treve` publicada sin
+verificación JWT. La función desplegada solo importa el código de este repo fijado a un commit
+(`raw.githubusercontent.com/.../<sha>/supabase/functions/treve/index.ts`); para actualizarla, vuelve a
+desplegar ese archivo de una línea con el nuevo SHA, o usa la CLI como se indica abajo.
+
+El plan gratuito pausa el proyecto tras ~7 días sin uso: si el visualizador dice "Orquestador no disponible",
+reactívalo en el panel (Restore project).
+
+## Desplegar desde cero
 1. **SQL Editor**: ejecuta `migrations/20261029000000_treve_orquestador.sql`
    (la primera migración ya está aplicada). Activa `pg_cron` y `pg_net` si el panel lo pide.
 2. **Edge Function** con la CLI de Supabase, desde la raíz del repo:

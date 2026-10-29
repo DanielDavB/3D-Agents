@@ -120,7 +120,7 @@ ser necesario para el MVP; queda como opción si algún día un agente necesita 
 |---|---|
 | 0 · Preparación | En curso: proyecto de Supabase creado y esquema aplicado |
 | 1 · Simulador de fuentes | Hecha: escenarios normal, sucio y caída activos en n8n |
-| 2 · Orquestador | Hecha y probada en local (6/6 discrepancias, 0 falsas alarmas); falta desplegar la Edge Function |
+| 2 · Orquestador | Hecha y desplegada en Supabase: ciclo real con n8n, APIs públicas y alertas (6/6 discrepancias, 0 falsas alarmas) |
 | 3 · Visualizador | Hecha: 3D con eventos reales, validación humana, dashboard y 3 estilos (falta login con Google) |
-| 4 · Puesta en marcha | Pendiente |
+| 4 · Puesta en marcha | En curso: falta cargar las keys de OpenAI y JEV |
 | 5 · Demo | Pendiente |
