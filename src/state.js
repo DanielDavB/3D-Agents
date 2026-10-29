@@ -2,7 +2,7 @@
 
 import { seedState } from './project.js';
 
-const STORAGE_KEY = '3d-agents:treve-mvp';
+const STORAGE_KEY = '3d-agents:treve-mvp-v3';
 
 export const uid = (p) => `${p}_${Math.random().toString(36).slice(2, 9)}`;
 

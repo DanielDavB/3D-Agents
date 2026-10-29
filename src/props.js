@@ -172,6 +172,7 @@ export function buildWorkstation(agentId, providerColor) {
   }
   // torso con ropa y gafete del color del conector
   const shirtMat = new THREE.MeshStandardMaterial({ color: shirt, roughness: 0.75, emissive: pColor, emissiveIntensity: 0 });
+  shirtMat.userData.live = true; // brilla al recibir mensajes: el tema la recolorea en su lugar
   const torso = mesh(cap(0.27, 0.42), shirtMat, 0, 1.42, -0.08);
   torso.scale.set(1.18, 1, 0.8);
   person.add(torso);

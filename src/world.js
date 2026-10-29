@@ -92,7 +92,8 @@ export function createWorld(container, { onSelect } = {}) {
   composer.addPass(new OutputPass());
 
   // Luces y suelo
-  scene.add(new THREE.HemisphereLight('#ffffff', '#101010', 1.25));
+  const hemi = new THREE.HemisphereLight('#ffffff', '#101010', 1.25);
+  scene.add(hemi);
   const sun = new THREE.DirectionalLight('#ffffff', 1.2);
   sun.position.set(-40, 90, 50);
   sun.castShadow = true;
@@ -130,6 +131,7 @@ export function createWorld(container, { onSelect } = {}) {
   const userNode = new THREE.Group();
   userNode.position.copy(USER_POS);
   const userOrb = new THREE.Mesh(new THREE.SphereGeometry(0.8, 24, 16), new THREE.MeshBasicMaterial({ color: '#ffffff' }));
+  userOrb.userData.themeSkip = true;
   userNode.add(userOrb);
   const userLabel = label('Tú', 'label user-label');
   userLabel.position.set(0, 1.9, 0);
@@ -291,7 +293,74 @@ export function createWorld(container, { onSelect } = {}) {
     }
     buildCorridors();
     buildSources(sources);
+    applyTheme(world);
     if (selectedId) setSelected(selectedId);
+  }
+
+  // ---------- temas (src/themes.js) ----------
+  let theme = { id: 'inmersivo', scene: { colors: {}, packets: {} } };
+  const toonGradient = (() => {
+    const t = new THREE.DataTexture(new Uint8Array([70, 70, 70, 255, 160, 160, 160, 255, 255, 255, 255, 255]), 3, 1);
+    t.minFilter = t.magFilter = THREE.NearestFilter;
+    t.needsUpdate = true;
+    return t;
+  })();
+  const themed = new WeakMap(); // material original -> { id, mat }
+  const mapColor = (hex, basic) => {
+    const sc = theme.scene;
+    const m = sc.colors?.[hex];
+    return m && (!sc.basicOnly?.includes(hex) || basic) ? m : null;
+  };
+  function themeMaterial(orig) {
+    if (!orig.color) return orig;
+    const basic = orig.isMeshBasicMaterial || orig.isLineBasicMaterial;
+    if (orig.userData.live) {
+      // Materiales animados: se recolorean en su lugar (el bucle de animación los sigue usando)
+      orig.userData.baseHex ||= '#' + orig.color.getHexString();
+      orig.color.set(mapColor(orig.userData.baseHex, basic) || orig.userData.baseHex);
+      return orig;
+    }
+    const mapped = mapColor('#' + orig.color.getHexString(), basic);
+    const toon = theme.scene.toon && orig.isMeshStandardMaterial;
+    if (!mapped && !toon) return orig;
+    const prev = themed.get(orig);
+    if (prev?.id === theme.id) return prev.mat;
+    const mat = toon
+      ? new THREE.MeshToonMaterial({
+          color: mapped || orig.color, gradientMap: toonGradient, transparent: orig.transparent, opacity: orig.opacity,
+          emissive: orig.emissive, emissiveIntensity: orig.emissiveIntensity,
+        })
+      : orig.clone();
+    if (!toon) mat.color.set(mapped);
+    mat.userData.keep = !!orig.userData.keep;
+    themed.set(orig, { id: theme.id, mat });
+    return mat;
+  }
+  function applyTheme(root) {
+    root.traverse((o) => {
+      if (!(o.isMesh || o.isLine) || !o.material || Array.isArray(o.material) || o.userData.themeSkip) return;
+      const orig = o.userData.origMat || (o.userData.origMat = o.material);
+      o.material = themeMaterial(orig);
+    });
+  }
+  function setTheme(id, sc) {
+    theme = { id, scene: sc };
+    scene.background = new THREE.Color(sc.background);
+    scene.fog = new THREE.Fog(sc.background, sc.fog[0], sc.fog[1]);
+    floor.material.color.set(sc.ground);
+    dots.material.uniforms.uColor.value.set(sc.dots);
+    hemi.color.set(sc.hemi[0]);
+    hemi.groundColor.set(sc.hemi[1]);
+    hemi.intensity = sc.hemi[2];
+    sun.intensity = sc.sun;
+    [bloom.strength, bloom.radius, bloom.threshold] = sc.bloom;
+    bloom.enabled = sc.bloom[0] > 0;
+    userOrb.material.color.set(sc.packets?.['#ffffff'] || '#ffffff');
+    const ratio = Math.min(window.devicePixelRatio, 2) * sc.pixel;
+    renderer.setPixelRatio(ratio);
+    composer.setPixelRatio(ratio);
+    resize();
+    applyTheme(world);
   }
 
   // ---------- fuentes de datos (Compaq, Esfera, Monday…) ----------
@@ -320,6 +389,7 @@ export function createWorld(container, { onSelect } = {}) {
         const g = new THREE.Group();
         g.position.copy(p);
         const mat = new THREE.MeshStandardMaterial({ color: '#dedede', roughness: 0.55, metalness: 0, emissive: '#e8600c', emissiveIntensity: 0 });
+        mat.userData.live = true; // se anima: el tema la recolorea en su lugar
         for (let k = 0; k < 3; k++) {
           const disc = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.3, 0.55, 40), mat);
           disc.position.y = 0.4 + k * 0.72;
@@ -422,6 +492,7 @@ export function createWorld(container, { onSelect } = {}) {
   }
 
   function sendPacket(fromId, toId, { color = '#ffffff', onArrive, size = 0.38 } = {}) {
+    color = theme.scene.packets?.[String(color).toLowerCase()] || color;
     const pts = routePoints(fromId, toId);
     if (!pts || pts.length < 2) {
       onArrive?.();
@@ -682,5 +753,6 @@ export function createWorld(container, { onSelect } = {}) {
     setAutoRotate: (on) => (controls.autoRotate = on),
     hasAgent: (id) => agentViews.has(id),
     setWorking: (id, on) => (on ? working.add(id) : working.delete(id)),
+    setTheme,
   };
 }

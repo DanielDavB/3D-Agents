@@ -423,3 +423,168 @@ table.data .mono { font-size: 12px; word-break: break-all; }
   .grid2 { grid-template-columns: 1fr; }
   .provider-picker { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ---------- motor real: avisos, selección de escenario, progreso ---------- */
+:root { --s1: #e8600c; --s2: #3987e5; }
+.banner { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 16px; border-radius: 14px; border: 1px solid var(--hair); font-size: 13.5px; }
+.banner b { font-size: 13px; letter-spacing: 0.04em; }
+.banner span { color: var(--muted-light); flex: 1; min-width: 200px; }
+.banner.warn { background: rgba(250, 178, 25, 0.1); border-color: rgba(250, 178, 25, 0.35); }
+.banner.warn b { color: #fab219; }
+.banner.ok { background: rgba(12, 163, 12, 0.1); border-color: rgba(12, 163, 12, 0.35); }
+.banner.ok b { color: #3ccf5a; }
+.banner .btn { height: 32px; }
+.kpis.small .kpi b { font-size: 22px; }
+.charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.charts.one { grid-template-columns: 1fr; }
+.delta { font-size: 12px; color: var(--muted-light); }
+.delta.up { color: #3ccf5a; }
+.delta.down { color: var(--danger); }
+.delta.warn { color: #fab219; }
+.row.tight { display: flex; gap: 4px; }
+.mini { border: 1px solid var(--hair); background: rgba(255, 255, 255, 0.06); border-radius: 999px; padding: 5px 11px; font-size: 12px; cursor: pointer; color: inherit; text-decoration: none; display: inline-block; white-space: nowrap; }
+.mini.accent { background: var(--primary); border-color: transparent; color: #fff; font-weight: 700; }
+.mini:disabled { opacity: 0.5; }
+.choice { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.choice.two { grid-template-columns: 1fr 1fr; }
+.choice label {
+  position: relative; display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: 14px; cursor: pointer;
+  border: 1px solid var(--dark-border); background: rgba(255, 255, 255, 0.03); color: var(--muted-light); font-size: 12px; line-height: 1.35;
+}
+.choice label b { color: var(--light); font-size: 13.5px; }
+.choice input { position: absolute; opacity: 0; pointer-events: none; }
+.choice label:has(input:checked) { border-color: var(--primary); background: rgba(232, 96, 12, 0.12); }
+.choice label:has(input:focus-visible) { outline: 2px solid var(--primary); outline-offset: 2px; }
+#engineStatus .state { margin-right: 6px; font-style: normal; }
+.progress {
+  position: fixed; top: 64px; left: 50%; transform: translateX(-50%); z-index: 9; display: flex; align-items: center; gap: 10px;
+  width: min(460px, calc(100vw - 32px)); padding: 6px 12px; border-radius: 999px; font-size: 12px;
+  background: var(--glass); border: 1px solid var(--hair); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+}
+.progress-label { color: var(--muted-light); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45%; }
+.progress-bar { flex: 1; height: 6px; border-radius: 999px; background: var(--dark-border); overflow: hidden; }
+.progress-bar i { display: block; height: 100%; width: 0; background: var(--primary); border-radius: 999px; transition: width 0.4s; }
+.progress-count { font-variant-numeric: tabular-nums; color: var(--light); font-weight: 700; }
+.menu.themes .menu-list { min-width: 260px; }
+.menu-title { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); padding: 8px 12px 4px; }
+.menu-list > button[data-theme] { display: flex; align-items: center; gap: 12px; }
+.menu-list > button[data-theme] span { display: flex; flex-direction: column; }
+.menu-list > button[data-theme] small { color: var(--muted); font-size: 11.5px; }
+.menu-list > button[data-theme].on { background: rgba(232, 96, 12, 0.14); }
+.swatch { width: 30px; height: 30px; border-radius: 9px; flex: none; border: 1px solid var(--hair-strong); }
+.swatch.inmersivo { background: radial-gradient(circle at 70% 30%, #e8600c 0 22%, transparent 24%), linear-gradient(135deg, #1a1a1a, #050505); }
+.swatch.juego { background: linear-gradient(90deg, #ffcf5c 0 33%, #ff5c8a 33% 66%, #5ce1e6 66%); image-rendering: pixelated; border-radius: 3px; }
+.swatch.claro { background: radial-gradient(circle at 70% 30%, #c4500a 0 22%, transparent 24%), linear-gradient(135deg, #ffffff, #e6e1d8); }
+@media (max-width: 900px) {
+  .charts, .choice { grid-template-columns: 1fr; }
+  .progress { top: 56px; }
+}
+
+/* =====================================================================
+   TEMA "3D inmersivo": más brillo y profundidad sobre la identidad oscura
+   ===================================================================== */
+:root[data-tema='inmersivo'] .panel, :root[data-tema='inmersivo'] .btn, :root[data-tema='inmersivo'] .icon-round { border-color: rgba(255, 255, 255, 0.09); }
+:root[data-tema='inmersivo'] .panel { box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06); }
+:root[data-tema='inmersivo'] .agent-label.active { box-shadow: 0 0 18px rgba(232, 96, 12, 0.45); }
+:root[data-tema='inmersivo'] .orbs i:nth-child(1) { opacity: 0.09; }
+
+/* =====================================================================
+   TEMA "Videojuego": HUD retro, fuentes pixel, bordes duros y sombra sólida
+   ===================================================================== */
+:root[data-tema='juego'] {
+  --primary: #ff7a1a; --primary-hover: #ff9440; --dark: #140f2d; --dark-surface: #1e1846; --dark-surface-alt: #251d55;
+  --dark-border: #3b2f80; --dark-border-light: #5c4dd6; --text: #f4f1ff; --muted: #9d93d6; --muted-light: #c9c1ff; --light: #ffffff;
+  --glass: #1e1846; --glass-strong: #1e1846; --hair: #5c4dd6; --hair-strong: #8f80ff; --panel: #1e1846;
+  --radius: 4px; --shadow: 6px 6px 0 #07051a; --s1: #e8600c; --s2: #3a95e0;
+  font-family: 'VT323', ui-monospace, monospace; font-size: 18px;
+}
+:root[data-tema='juego'] body { background: #140f2d; }
+:root[data-tema='juego'] #scene canvas { image-rendering: pixelated; }
+:root[data-tema='juego'] .orbs { display: none; }
+:root[data-tema='juego'] .panel, :root[data-tema='juego'] dialog, :root[data-tema='juego'] .menu-list, :root[data-tema='juego'] .cmdbar, :root[data-tema='juego'] .progress {
+  border: 3px solid var(--hair); border-radius: 4px; box-shadow: var(--shadow); backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--dark-surface);
+}
+:root[data-tema='juego'] .btn, :root[data-tema='juego'] .icon-round, :root[data-tema='juego'] .mini, :root[data-tema='juego'] .brain-status {
+  border-radius: 3px; border: 2px solid var(--hair); box-shadow: 3px 3px 0 #07051a; backdrop-filter: none; background: #2a2163; font-size: 18px;
+}
+:root[data-tema='juego'] .btn.accent, :root[data-tema='juego'] .mini.accent { background: var(--primary); border-color: #ffd0a8; color: #1a0f00; }
+:root[data-tema='juego'] .btn:active, :root[data-tema='juego'] .mini:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #07051a; }
+:root[data-tema='juego'] h1, :root[data-tema='juego'] h2, :root[data-tema='juego'] h3, :root[data-tema='juego'] .pill, :root[data-tema='juego'] .kpi-label,
+:root[data-tema='juego'] .office-label, :root[data-tema='juego'] .tabs button, :root[data-tema='juego'] .progress-label, :root[data-tema='juego'] .menu-title {
+  font-family: 'Press Start 2P', monospace; letter-spacing: 0.02em;
+}
+:root[data-tema='juego'] h1 { font-size: 13px; }
+:root[data-tema='juego'] h3, :root[data-tema='juego'] dialog h3, :root[data-tema='juego'] .dash-head h3 { font-size: 15px; line-height: 1.5; }
+:root[data-tema='juego'] .panel h2, :root[data-tema='juego'] .pill, :root[data-tema='juego'] .kpi-label, :root[data-tema='juego'] .tabs button { font-size: 9px; }
+:root[data-tema='juego'] .office-label { font-size: 9px; text-shadow: 2px 2px 0 #000; }
+:root[data-tema='juego'] .pill { border-radius: 2px; background: var(--primary); color: #1a0f00; }
+:root[data-tema='juego'] .brand .logo { border-radius: 3px; box-shadow: 3px 3px 0 #07051a; font-family: 'Press Start 2P', monospace; font-size: 10px; }
+:root[data-tema='juego'] .agent-label, :root[data-tema='juego'] .source-label, :root[data-tema='juego'] .user-label {
+  border-radius: 2px; border: 2px solid var(--hair); box-shadow: 2px 2px 0 #07051a; font-size: 16px; backdrop-filter: none; background: var(--dark-surface);
+}
+:root[data-tema='juego'] .user-label { background: #5ce1e6; color: #140f2d; }
+:root[data-tema='juego'] .kpi, :root[data-tema='juego'] .chart, :root[data-tema='juego'] .card, :root[data-tema='juego'] .conclusions article, :root[data-tema='juego'] .finding,
+:root[data-tema='juego'] .choice label, :root[data-tema='juego'] .stat, :root[data-tema='juego'] .banner { border-radius: 3px; border: 2px solid var(--dark-border-light); background: var(--dark-surface-alt); }
+:root[data-tema='juego'] .kpi b { font-family: 'VT323', monospace; font-size: 42px; color: #ffcf5c; }
+:root[data-tema='juego'] .tabs, :root[data-tema='juego'] .tabs button { border-radius: 2px; }
+:root[data-tema='juego'] .tabs button.on { background: var(--primary); color: #1a0f00; }
+:root[data-tema='juego'] .progress { border-radius: 4px; padding: 8px 12px; }
+:root[data-tema='juego'] .progress-label { font-size: 9px; color: #ffcf5c; }
+:root[data-tema='juego'] .progress-bar { height: 14px; border-radius: 0; border: 2px solid #07051a; background: #07051a; }
+:root[data-tema='juego'] .progress-bar i {
+  border-radius: 0; background: repeating-linear-gradient(90deg, #4cd964 0 10px, #2fb84a 10px 12px); transition: width 0.25s steps(6);
+}
+:root[data-tema='juego'] .progress-count { font-size: 20px; color: #4cd964; }
+:root[data-tema='juego'] #feed { font-size: 17px; }
+:root[data-tema='juego'] #feed li::before { border-radius: 0; }
+:root[data-tema='juego'] dialog input:not([type='checkbox']), :root[data-tema='juego'] dialog select { border-radius: 2px; border: 2px solid var(--dark-border-light); font-family: 'VT323', monospace; font-size: 20px; }
+:root[data-tema='juego'] .chart .grid, :root[data-tema='juego'] .chart .axis { stroke: #3b2f80; }
+:root[data-tema='juego'] .chart .cat, :root[data-tema='juego'] .chart .val, :root[data-tema='juego'] .chart .tick { font-family: 'VT323', monospace; font-size: 16px; }
+:root[data-tema='juego'] .viz-tip { border-radius: 2px; border: 2px solid var(--hair); box-shadow: 3px 3px 0 #07051a; background: var(--dark-surface); }
+:root[data-tema='juego'] .dash { background: var(--dark-surface); }
+:root[data-tema='juego'] .intro { background: var(--dark-surface); }
+:root[data-tema='juego'] .swatch { border-radius: 2px; }
+
+/* =====================================================================
+   TEMA "Claro ejecutivo": papel cálido, tinta oscura, naranja más profundo
+   ===================================================================== */
+:root[data-tema='claro'] {
+  --primary: #c4500a; --primary-hover: #a84408; --primary-tint: #fbe3d3; --primary-text-on-tint: #7a320a;
+  --dark: #efece6; --dark-surface: #ffffff; --dark-surface-alt: #faf8f4; --dark-border: #e4ded4; --dark-border-light: #d3cbbd;
+  --light: #1a1a1a; --text: #1f1f1f; --muted: #7a746b; --muted-light: #57524b; --danger: #c22f2f;
+  --glass: rgba(255, 255, 255, 0.86); --glass-strong: rgba(255, 255, 255, 0.95); --hair: rgba(31, 26, 18, 0.1); --hair-strong: rgba(31, 26, 18, 0.18);
+  --panel: rgba(255, 255, 255, 0.9); --shadow: 0 14px 40px rgba(60, 45, 25, 0.12); --s1: #c4500a; --s2: #2f74c9;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+  color: var(--text);
+}
+:root[data-tema='claro'] body { background: #efece6; }
+:root[data-tema='claro'] .orbs i { opacity: 0.05 !important; }
+:root[data-tema='claro'] ::selection { background: rgba(196, 80, 10, 0.25); }
+:root[data-tema='claro'] .btn:hover, :root[data-tema='claro'] .icon-round:hover, :root[data-tema='claro'] .menu-list > button:hover,
+:root[data-tema='claro'] .tree-row:hover, :root[data-tema='claro'] .menu[open] summary { background: rgba(31, 26, 18, 0.06); }
+:root[data-tema='claro'] .btn.accent, :root[data-tema='claro'] .mini.accent { color: #fff; box-shadow: 0 8px 20px rgba(196, 80, 10, 0.25); }
+:root[data-tema='claro'] .brand .logo { color: #fff; box-shadow: 0 6px 16px rgba(196, 80, 10, 0.3); }
+:root[data-tema='claro'] .office-label { color: #2a2620; text-shadow: 0 1px 6px rgba(255, 255, 255, 0.9); }
+:root[data-tema='claro'] .user-label { background: #1f1f1f; color: #fff; }
+:root[data-tema='claro'] dialog { background: #ffffff; color: var(--text); box-shadow: 0 30px 80px rgba(60, 45, 25, 0.25); }
+:root[data-tema='claro'] dialog::backdrop { background: rgba(40, 32, 20, 0.25); }
+:root[data-tema='claro'] dialog input:not([type='checkbox']):not([type='color']), :root[data-tema='claro'] dialog select, :root[data-tema='claro'] dialog textarea,
+:root[data-tema='claro'] #details textarea { background: #faf8f4; color: var(--text); }
+:root[data-tema='claro'] .dash { background: rgba(255, 255, 255, 0.98); }
+:root[data-tema='claro'] .intro { background: rgba(255, 255, 255, 0.98); }
+:root[data-tema='claro'] .kpi, :root[data-tema='claro'] .chart, :root[data-tema='claro'] .card, :root[data-tema='claro'] .stat, :root[data-tema='claro'] .choice label { background: #faf8f4; }
+:root[data-tema='claro'] .tabs { background: rgba(31, 26, 18, 0.06); }
+:root[data-tema='claro'] .tabs button.on { background: #ffffff; box-shadow: 0 1px 4px rgba(60, 45, 25, 0.15); }
+:root[data-tema='claro'] .chart .grid { stroke: #e4ded4; }
+:root[data-tema='claro'] .chart .axis { stroke: #cfc7b9; }
+:root[data-tema='claro'] .chart .tick { fill: #7a746b; }
+:root[data-tema='claro'] .viz-tip { background: #ffffff; box-shadow: 0 8px 24px rgba(60, 45, 25, 0.18); }
+:root[data-tema='claro'] .status i { color: #fff; }
+:root[data-tema='claro'] .delta.up, :root[data-tema='claro'] .banner.ok b { color: #1e7d32; }
+:root[data-tema='claro'] .delta.warn, :root[data-tema='claro'] .banner.warn b, :root[data-tema='claro'] .state.warn { color: #9a6200; }
+:root[data-tema='claro'] .state.ok { background: rgba(196, 80, 10, 0.12); }
+:root[data-tema='claro'] .mini { background: rgba(31, 26, 18, 0.05); }
+:root[data-tema='claro'] .provider-picker button { background: #faf8f4; }
+:root[data-tema='claro'] * { scrollbar-color: #cfc7b9 transparent; }
+:root[data-tema='claro'] .tree-row .dot, :root[data-tema='claro'] .office-label .dot, :root[data-tema='claro'] .provider-picker button i { box-shadow: 0 0 0 1px rgba(31, 26, 18, 0.35); }
+.dash-body > * { flex: none; }

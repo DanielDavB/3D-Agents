@@ -190,7 +190,7 @@ const AGENTES: Record<string, (c: Ctx) => Promise<Row>> = {
       await ev(`src:${fuente}`, t.agente, 'error', `${nom} no responde (503) después de ${r.intentos} intentos: el ciclo sigue sin esta fuente`);
       return { fuente, faltante: true };
     }
-    if (r.origen === 'local') await ev(t.agente, 'ag_orq', 'info', `El simulador de n8n no respondió (${r.aviso}); uso el simulador local de respaldo`);
+    if (r.origen === 'local') await ev(t.agente, 'ag_orq', 'info', `El simulador de n8n no respondió (${String(r.aviso).replace(/^error sending request for url \([^)]*\):?\s*/, '').slice(0, 80)}); uso el simulador local de respaldo`);
     let rows: Row[] | null = null;
     let bytes: Uint8Array;
     let ct: string;

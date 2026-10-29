@@ -26,7 +26,7 @@ function tooltip() {
   }
   return tip;
 }
-function showTip(html, x, y) {
+export function showTip(html, x, y) {
   const t = tooltip();
   t.innerHTML = html;
   t.hidden = false;
@@ -34,7 +34,7 @@ function showTip(html, x, y) {
   t.style.left = `${Math.min(window.innerWidth - r.width - 8, x + 14)}px`;
   t.style.top = `${Math.max(8, y - r.height - 10)}px`;
 }
-const hideTip = () => tip && (tip.hidden = true);
+export const hideTip = () => tip && (tip.hidden = true);
 
 // ---------- KPIs ----------
 function kpis(quality) {

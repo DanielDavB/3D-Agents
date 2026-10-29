@@ -33,7 +33,8 @@ export function seedState() {
     a('ag_esfera', 'Agente Esfera', 'Extrae nómina y plantilla de empleados de Esfera', 'off_c1', 'n8n'),
     a('ag_monday', 'Agente Monday', 'Extrae prospectos, oportunidades y ventas de Monday', 'off_c1', 'n8n'),
     a('ag_bancos', 'Agente Bancos', 'Descarga y clasifica estados de cuenta sin captura manual', 'off_c1', 'claude'),
-    a('ag_excel', 'Agente Excel', 'Lee los Excel actuales y detecta cambios de formato', 'off_c1', 'claude'),
+    a('ag_excel', 'Agente Excel', 'Llena el Reporte de ventas en Excel con el formato de Treve', 'off_c1', 'claude'),
+    a('ag_ext', 'Agente de mercado', 'Consulta APIs públicas: tipo de cambio USD/MXN y días festivos', 'off_c1', 'webhook'),
 
     a('ag_norm', 'Normalizador', 'Unifica catálogos de clientes, conceptos y fechas', 'off_c2', 'claude'),
     a('ag_conc', 'Conciliador', 'Cruza ventas ↔ facturas ↔ pagos ↔ bancos', 'off_c2', 'claude'),
@@ -41,6 +42,7 @@ export function seedState() {
 
     a('ag_qa', 'Auditor de calidad', 'Detecta discrepancias, duplicados y fórmulas rotas antes de publicar', 'off_qa', 'claude'),
     a('ag_cambios', 'Control de cambios', 'Permisos, versiones y bitácora de correcciones', 'off_qa', 'webhook'),
+    a('ag_alertas', 'Agente de alertas', 'Envía el resumen y las alertas del ciclo por n8n', 'off_qa', 'n8n'),
 
     a('ag_fin', 'Analista financiero', 'Salud financiera, flujo de efectivo y cuentas por cobrar', 'off_c3', 'claude'),
     a('ag_com', 'Analista comercial', 'Eficiencia comercial y retorno de marketing por canal', 'off_c3', 'claude'),
@@ -55,7 +57,8 @@ export const SOURCES = [
   { id: 'esfera', name: 'Esfera', desc: 'Nómina y empleados', agentId: 'ag_esfera' },
   { id: 'monday', name: 'Monday', desc: 'Prospectos y ventas', agentId: 'ag_monday' },
   { id: 'bancos', name: 'Bancos', desc: 'Estados de cuenta', agentId: 'ag_bancos' },
-  { id: 'excel', name: 'Excel', desc: 'Archivos compartidos', agentId: 'ag_excel' },
+  { id: 'excel', name: 'Excel', desc: 'Reporte de ventas generado', agentId: 'ag_excel' },
+  { id: 'apis', name: 'APIs públicas', desc: 'Frankfurter (tipo de cambio) y Nager.Date (festivos)', agentId: 'ag_ext' },
 ];
 
 // Documentos que produce cada fuente en un ciclo (ficticios)
@@ -70,6 +73,7 @@ export const DOCUMENTS = {
     { name: 'estado_cuenta_banco_A_sep.pdf', records: 412 },
     { name: 'estado_cuenta_banco_B_sep.pdf', records: 236 },
   ],
+  apis: [{ name: 'usd_mxn_y_festivos.json', records: 2 }],
   excel: [
     { name: 'reporte_ventas_sep.xlsx', records: 152 },
     { name: 'gastos_marketing_sep.xlsx', records: 128 },

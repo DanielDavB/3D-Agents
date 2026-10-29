@@ -184,7 +184,8 @@ export function evaluar(hallazgos, respuestas) {
   };
   const key = (h) => `${h.tipo}:${(claves[h.tipo] || (() => JSON.stringify(h.referencia)))(h.referencia)}`;
   const esperadas = new Map(respuestas.discrepancias.map((d) => [key(d), d]));
-  const encontradas = new Set(hallazgos.map(key));
+  // los avisos operativos (fuente caída) no cuentan como falsas alarmas
+  const encontradas = new Set(hallazgos.filter((h) => h.tipo !== 'fuente_no_disponible').map(key));
   const aciertos = [...esperadas.keys()].filter((k) => encontradas.has(k));
   return {
     esperadas: esperadas.size,

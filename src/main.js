@@ -6,6 +6,10 @@ import { createBrain, BRAIN_MODELS } from './brain.js';
 import { createPipeline } from './pipeline.js';
 import { renderSummary, renderTrace, renderUsage } from './dashboard.js';
 import { PROJECT, SOURCES, DOCUMENTS } from './project.js';
+import { backend } from './backend.js';
+import { createLive } from './live.js';
+import { renderLiveSummary, renderLiveFindings, renderLiveFiles, renderLiveUsage } from './dashboard-live.js';
+import { setupThemes } from './themes.js';
 
 const $ = (s) => document.querySelector(s);
 const esc = (s = '') => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -506,6 +510,15 @@ $('#dashTitle').textContent = `${PROJECT.client} · ${PROJECT.period}`;
 function refreshPanels() {
   if (dash.hidden) return;
   const body = $('#dashBody');
+  dash.querySelector('[data-tab="findings"]').hidden = !liveState;
+  if (liveState) {
+    if (tab === 'summary') renderLiveSummary(body, liveState, { store });
+    if (tab === 'findings') renderLiveFindings(body, liveState);
+    if (tab === 'trace') renderLiveFiles(body, { ...liveState, archivos: liveFiles || liveState.archivos }, { store });
+    if (tab === 'usage') renderLiveUsage(body, liveState, { salud });
+    return;
+  }
+  if (tab === 'findings') tab = 'summary';
   if (tab === 'summary') renderSummary(body, { store, ...dashData });
   if (tab === 'trace') renderTrace(body, { rows: trace.rows, decisions: trace.decisions, store });
   if (tab === 'usage') renderUsage(body, { usage, store });
@@ -515,6 +528,7 @@ function openDash(which = tab) {
   dash.hidden = false;
   dash.querySelectorAll('[data-tab]').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
   refreshPanels();
+  if (liveState && tab === 'trace') loadFiles();
 }
 dash.querySelector('.tabs').addEventListener('click', (e) => {
   const b = e.target.closest('[data-tab]');
@@ -556,8 +570,11 @@ const pipeline = createPipeline({
     openDash('summary');
   },
 });
-async function runCycle() {
+async function runDemo() {
   if (pipeline.isRunning()) return log({ kind: 'info', text: 'El ciclo ya está en curso.' });
+  liveState = null;
+  live.stop();
+  $('#dashFoot').textContent = 'Datos de ejemplo para el MVP · no corresponden a información real de Treve.';
   $('#intro').hidden = true;
   dash.hidden = true;
   sim.setRunning(false);
@@ -572,6 +589,182 @@ async function runCycle() {
   }
 }
 $('#btnCycle').onclick = runCycle;
+
+// ---------- motor real (Supabase) ----------
+let liveState = null; // último estado de la corrida real
+let liveFiles = null; // archivos con enlaces firmados
+let salud = null; // integraciones del orquestador
+const nameOf = (id) => {
+  if (!id) return '';
+  if (id === 'user') return 'Tú';
+  if (id === 'external') return 'APIs externas';
+  if (id.startsWith('src:')) return SOURCES.find((s) => `src:${s.id}` === id)?.name || id.slice(4);
+  return store.agent(id)?.name || id;
+};
+const live = createLive({
+  store, world, log, setResult,
+  bump: (id, key) => sim.bump(id, key),
+  nameOf,
+  onUpdate: (st) => {
+    liveState = st;
+    updateProgress(st);
+    refreshPanels();
+  },
+});
+
+// Barra de progreso del ciclo (en el tema Videojuego es la barra de XP)
+const PASO = {
+  extraer: 'Extracción', mercado: 'APIs públicas', normalizar: 'Normalización', conciliar: 'Conciliación', juzgar: 'Juicio',
+  almacenar: 'Almacén', indicadores: 'Indicadores', llenar_excel: 'Reporte Excel', conclusiones: 'Conclusiones', notificar: 'Alertas', cierre: 'Cierre',
+};
+let progressTimer = null;
+function updateProgress(st) {
+  const box = $('#progress');
+  const ts = st.tareas || [];
+  if (!ts.length) return;
+  const done = ts.filter((t) => ['hecha', 'error', 'cancelada'].includes(t.estado)).length;
+  const now = ts.find((t) => t.estado === 'en_curso') || ts.find((t) => t.estado === 'pendiente');
+  const estado = st.corrida.estado;
+  clearTimeout(progressTimer);
+  box.hidden = false;
+  $('#progressFill').style.width = `${Math.round((done / ts.length) * 100)}%`;
+  $('#progressCount').textContent = `${done}/${ts.length}`;
+  $('#progressLabel').textContent =
+    estado === 'en_revision' ? 'Esperando tu validación' : estado === 'terminada' ? 'Ciclo completado' : estado === 'error' ? 'Ciclo detenido' : `Paso: ${PASO[now?.paso] || 'preparando'}`;
+  if (estado !== 'en_curso') progressTimer = setTimeout(() => (box.hidden = true), 9000);
+}
+
+async function checkEngine() {
+  try {
+    salud = await backend.salud();
+    const it = salud.integraciones;
+    $('#engineStatus').innerHTML = `<span class="state ok">✓ Orquestador en línea</span> Cerebro: ${it.openai ? esc(it.openai) : 'plantillas'} · JEV: ${it.jev ? 'conectado' : 'reglas fijas'} · APIs públicas: tipo de cambio y festivos`;
+    return true;
+  } catch (err) {
+    salud = null;
+    $('#engineStatus').innerHTML = `<span class="state warn">! Orquestador no disponible</span> ${esc(err.message)}. Puedes usar el modo Demo.`;
+    $('#runForm').elements.modo.value = 'demo';
+    return false;
+  }
+}
+
+const runDialog = $('#runDialog');
+async function runCycle() {
+  if (pipeline.isRunning() || live.current()?.state?.corrida?.estado === 'en_curso') return log({ kind: 'info', text: 'El ciclo ya está en curso.' });
+  runDialog.returnValue = '';
+  runDialog.showModal();
+  checkEngine();
+}
+runDialog.addEventListener('close', () => {
+  if (runDialog.returnValue !== 'ok') return;
+  const f = $('#runForm').elements;
+  if (f.modo.value === 'demo') return runDemo();
+  runLive({ periodo: f.periodo.value || '2026-09', version: Number(f.version.value), escenario: f.escenario.value });
+});
+
+async function runLive(opciones) {
+  $('#intro').hidden = true;
+  dash.hidden = true;
+  sim.setRunning(false);
+  btnPlay.textContent = '▶ Auto';
+  select(null, false);
+  world.focus(null);
+  trace.reset();
+  results.clear();
+  liveFiles = null;
+  $('#btnCycle').disabled = true;
+  $('#dashTitle').textContent = `${PROJECT.client} · ${opciones.periodo}`;
+  $('#dashFoot').textContent = 'Datos ficticios del simulador · procesados por el orquestador real en Supabase.';
+  log({ kind: 'info', text: `▶ Ciclo real · ${opciones.periodo} · Compaq v${opciones.version} · escenario ${opciones.escenario}` });
+  try {
+    const { done } = await live.start(opciones);
+    await afterLive(await done);
+  } catch (err) {
+    log({ kind: 'error', from: 'Sistema', to: 'Tú', text: `No se pudo completar el ciclo real: ${err.message}` });
+  } finally {
+    $('#btnCycle').disabled = false;
+  }
+}
+
+async function afterLive(st) {
+  if (!st) return;
+  liveState = st;
+  // No cambia la pestaña si ya estás viendo el dashboard
+  const show = (t) => (dash.hidden ? openDash(t) : refreshPanels());
+  if (st.corrida.estado === 'en_revision') {
+    show('summary');
+    openLiveValidation();
+  } else if (st.corrida.estado === 'terminada') {
+    log({ kind: 'info', text: '✔ Versión final publicada. Dashboard actualizado con datos validados.' });
+    show('summary');
+  } else show('trace');
+}
+
+async function loadFiles() {
+  if (!liveState) return;
+  try {
+    const st = await backend.estado(liveState.corrida.id, Number.MAX_SAFE_INTEGER, true);
+    liveFiles = st.archivos;
+    liveState = { ...liveState, ...st, eventos: [] };
+    if (tab === 'trace') refreshPanels();
+  } catch {
+    /* sin enlaces por ahora */
+  }
+}
+
+// Validación humana sobre los hallazgos reales
+function openLiveValidation() {
+  const pend = (liveState?.hallazgos || []).filter((h) => h.estado === 'en_revision');
+  if (!pend.length) return;
+  $('#findings').innerHTML = pend
+    .map(
+      (h) => `<label class="finding"><input type="checkbox" name="${h.id}" checked />
+        <div><b>${esc(h.tipo.replace(/_/g, ' '))}${h.monto != null ? ` · $${Number(h.monto).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''}</b><span>${esc(h.descripcion)}</span>
+        <em>Decisión: ${h.decision?.fuente === 'jev' ? 'JEV' : 'reglas'} pide validación humana (${Math.round((h.decision?.confidence || 0) * 100)} %). Marcado = confirmar · sin marcar = descartar</em></div></label>`,
+    )
+    .join('');
+  validationDialog.addEventListener(
+    'close',
+    async () => {
+      const form = $('#validationForm').elements;
+      await resolveMany(pend.map((h) => [h.id, form[h.id].checked ? 'confirmado' : 'descartado']));
+    },
+    { once: true },
+  );
+  validationDialog.showModal();
+}
+
+async function resolveMany(list) {
+  let pendientes = null;
+  for (const [id, decision] of list) {
+    try {
+      ({ pendientes } = await backend.resolver(id, decision, 'Validado desde el visualizador'));
+    } catch (err) {
+      log({ kind: 'error', from: 'Sistema', to: 'Auditor de calidad', text: err.message });
+    }
+  }
+  if (pendientes === 0) {
+    $('#btnCycle').disabled = true;
+    try {
+      await afterLive(await live.resume());
+    } finally {
+      $('#btnCycle').disabled = false;
+    }
+  } else if (liveState) {
+    const st = await backend.estado(liveState.corrida.id, Number.MAX_SAFE_INTEGER).catch(() => null);
+    if (st) liveState = { ...liveState, ...st, eventos: [] };
+    refreshPanels();
+  }
+}
+
+$('#dashBody').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-resolver]');
+  if (b) {
+    b.disabled = true;
+    resolveMany([[b.dataset.resolver, b.dataset.decision]]);
+  }
+  if (e.target.closest('[data-act="open-validation"]')) openLiveValidation();
+});
 document.addEventListener('click', (e) => {
   const act = e.target.closest('[data-act]')?.dataset.act;
   if (act === 'run-cycle') runCycle();
@@ -580,6 +773,16 @@ document.addEventListener('click', (e) => {
 });
 
 // ---------- arranque ----------
+setupThemes({ world, onChange: () => refreshPanels() });
+// Si alguien ya lanzó un ciclo real hace poco, únete para verlo en vivo
+checkEngine().then((ok) => {
+  const u = salud?.ultima;
+  if (ok && u?.estado === 'en_curso' && Date.now() - Date.parse(u.created_at) < 5 * 60e3) {
+    log({ kind: 'info', text: `Hay un ciclo real en curso (${u.periodo}): te unes en vivo.` });
+    $('#intro').hidden = true;
+    live.follow(u.id).then(afterLive).catch(() => {});
+  }
+});
 store.subscribe((state) => {
   world.rebuild(state, SOURCES);
   renderTree();
