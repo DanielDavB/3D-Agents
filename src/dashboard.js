@@ -220,17 +220,18 @@ export function renderTrace(el, { rows, decisions, store }) {
   el.innerHTML = `<section class="card">
       <header class="card-head"><b>Documentos procesados</b><span>${rows.length} documentos · ${rows.reduce((s, r) => s + r.records, 0).toLocaleString('es-MX')} registros</span></header>
       <table class="data">
-        <tr><th>Documento</th><th>Fuente</th><th>Agente</th><th class="num">Registros</th><th>Estado</th><th>Hora</th></tr>
+        <tr><th>Documento</th><th>Fuente</th><th>Agente</th><th class="num">Registros</th><th>Estado</th><th>Hora</th><th></th></tr>
         ${rows
           .map(
             (r) => `<tr><td class="mono">${esc(r.doc)}</td><td>${esc(r.source)}</td><td>${esc(store.agent(r.agentId)?.name || '-')}</td>
-          <td class="num">${r.records}</td><td><span class="state ${statusClass(r.status)}">${esc(r.status)}</span></td><td class="num">${r.time}</td></tr>`,
+          <td class="num">${r.records}</td><td><span class="state ${statusClass(r.status)}">${esc(r.status)}</span></td><td class="num">${r.time}</td>
+          <td><div class="row tight"><button class="mini" data-ver-doc="${esc(r.doc)}">Ver</button><button class="mini accent" data-bajar-doc="${esc(r.doc)}">Descargar</button></div></td></tr>`,
           )
           .join('')}
       </table>
     </section>
     <section class="card">
-      <header class="card-head"><b>Decisiones de validación humana</b><span>Control de cambios</span></header>
+      <header class="card-head"><b>Decisiones de validación humana</b><span>Control de cambios${decisions.length ? ' · <button class="mini" data-export="demo-decisiones">Descargar CSV</button>' : ''}</span></header>
       ${
         decisions.length
           ? `<table class="data"><tr><th>Hallazgo</th><th>Corrección propuesta</th><th>Decisión</th><th>Hora</th></tr>

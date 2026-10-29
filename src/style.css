@@ -584,7 +584,29 @@ table.data .mono { font-size: 12px; word-break: break-all; }
 :root[data-tema='claro'] .delta.warn, :root[data-tema='claro'] .banner.warn b, :root[data-tema='claro'] .state.warn { color: #9a6200; }
 :root[data-tema='claro'] .state.ok { background: rgba(196, 80, 10, 0.12); }
 :root[data-tema='claro'] .mini { background: rgba(31, 26, 18, 0.05); }
+:root[data-tema='claro'] .mini.accent { background: var(--primary); color: #fff; }
 :root[data-tema='claro'] .provider-picker button { background: #faf8f4; }
 :root[data-tema='claro'] * { scrollbar-color: #cfc7b9 transparent; }
 :root[data-tema='claro'] .tree-row .dot, :root[data-tema='claro'] .office-label .dot, :root[data-tema='claro'] .provider-picker button i { box-shadow: 0 0 0 1px rgba(31, 26, 18, 0.35); }
 .dash-body > * { flex: none; }
+
+/* ---------- visor de documentos ---------- */
+dialog.viewer { width: min(1100px, calc(100vw - 32px)); height: min(80vh, 760px); padding: 0; display: none; flex-direction: column; }
+dialog.viewer[open] { display: flex; }
+.viewer-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 20px 22px 8px; }
+.viewer-head h3 { margin: 8px 0 2px; font-size: 20px; word-break: break-all; }
+.viewer-tools { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 4px 22px 10px; }
+.viewer-tools .tabs:empty { display: none; }
+.viewer-tools input { flex: 1; min-width: 180px; background: rgba(0, 0, 0, 0.3); border: 1px solid var(--hair); border-radius: 999px; padding: 8px 14px; color: var(--light); }
+.viewer-body { flex: 1; overflow: auto; margin: 0 22px; border: 1px solid var(--hair); border-radius: 12px; }
+.viewer-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 22px 18px; font-size: 12.5px; }
+table.sheet { font-size: 12.5px; }
+table.sheet thead th { position: sticky; top: 0; background: var(--dark-surface); z-index: 1; white-space: nowrap; }
+table.sheet td { padding: 6px 8px; white-space: nowrap; max-width: 420px; overflow: hidden; text-overflow: ellipsis; }
+table.sheet tbody tr:hover td { background: rgba(255, 255, 255, 0.04); }
+.card-head span .mini { margin-right: 4px; }
+:root[data-tema='claro'] .viewer-tools input { background: #faf8f4; color: var(--text); }
+:root[data-tema='claro'] table.sheet tbody tr:hover td { background: rgba(31, 26, 18, 0.04); }
+:root[data-tema='juego'] .viewer-tools input { border-radius: 2px; border: 2px solid var(--dark-border-light); font-family: 'VT323', monospace; font-size: 18px; }
+:root[data-tema='juego'] .viewer-body { border-radius: 2px; border: 2px solid var(--dark-border-light); }
+:root[data-tema='juego'] table.sheet { font-family: 'VT323', monospace; font-size: 17px; }

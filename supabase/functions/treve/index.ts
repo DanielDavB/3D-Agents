@@ -3,6 +3,7 @@
 // POST {accion:'iniciar', periodo, version, escenario} → crea una corrida y su cola de tareas
 // GET  ?accion=estado&corrida=<id>&desde=<eventoId>    → estado, bitácora, hallazgos, indicadores
 // POST {accion:'resolver', hallazgo, decision, nota}    → validación humana de un hallazgo
+// GET  ?accion=archivo&corrida=<id>&nombre=<archivo>  → contenido del archivo como tablas (todas las hojas)
 // GET  ?accion=corridas | ?accion=salud                 → últimas corridas | integraciones activas
 // POST {accion:'tick'}                                  → procesa la cola (lo llama pg_cron cada minuto)
 //
@@ -644,6 +645,32 @@ async function resolver(b: Row) {
   return { ok: true, pendientes: n };
 }
 
+// Contenido de un archivo del ciclo como tablas (todas las hojas), para consultarlo en el visualizador
+async function archivo(corrida: string, nombre: string) {
+  if (!corrida || !nombre) throw fallo('faltan corrida y nombre');
+  const [a] = await sql`select nombre, fuente, formato, storage_path from treve.archivos where corrida_id = ${corrida} and nombre = ${nombre}`;
+  if (!a) throw fallo('archivo no encontrado', 404);
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${a.storage_path}`, { headers: storageHeaders() });
+  if (!res.ok) throw fallo(`Storage respondió ${res.status}`, 502);
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  const MAX = 2000;
+  const hoja = (nombre: string, filas: Row[]) => ({ nombre, columnas: Object.keys(filas[0] || {}), total: filas.length, filas: filas.slice(0, MAX) });
+  let hojas;
+  if (a.formato === 'xlsx') {
+    const wb = XLSX.read(bytes, { type: 'array' });
+    hojas = wb.SheetNames.map((n: string) => hoja(n, XLSX.utils.sheet_to_json(wb.Sheets[n], { defval: '', raw: true })));
+  } else if (a.formato === 'csv') {
+    hojas = [hoja(({ esfera: 'Nómina', bancos: 'Movimientos' } as Row)[a.fuente] || 'Datos', N.parseCsv(new TextDecoder().decode(bytes)))];
+  } else {
+    const j = JSON.parse(new TextDecoder().decode(bytes));
+    const items = j?.data?.boards?.[0]?.items_page?.items;
+    hojas = Array.isArray(items)
+      ? [hoja('Oportunidades', items.map((it: Row) => ({ id: it.id, nombre: it.name, ...Object.fromEntries(it.column_values.map((c: Row) => [c.id, c.text])) })))]
+      : [hoja('Datos', Array.isArray(j) ? j : [j])];
+  }
+  return { nombre: a.nombre, fuente: a.fuente, formato: a.formato, url: await firmar(a.storage_path), hojas };
+}
+
 async function listar() {
   return await sql`select id, periodo, estado, opciones, created_at, terminada_at, resumen->'evaluacion' as evaluacion, costo_ia
                    from treve.corridas order by created_at desc limit 12`;
@@ -677,6 +704,7 @@ Deno.serve(async (req) => {
     if (accion === 'iniciar' && req.method === 'POST') return json(await iniciar(body), 202);
     if (accion === 'estado') return json(await estado(q('corrida'), Number(q('desde') || 0), String(q('archivos')) === '1' || q('archivos') === true));
     if (accion === 'corridas') return json(await listar());
+    if (accion === 'archivo') return json(await archivo(q('corrida'), q('nombre')));
     if (accion === 'resolver' && req.method === 'POST') return json(await resolver(body));
     return json({ error: 'acción desconocida' }, 400);
   } catch (e) {

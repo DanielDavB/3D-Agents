@@ -37,4 +37,17 @@ export const backend = {
   estado: (corrida, desde = 0, archivos = false) => call({ accion: 'estado', corrida, desde, archivos: archivos ? 1 : 0 }),
   resolver: (hallazgo, decision, nota = '') => call({}, { accion: 'resolver', hallazgo, decision, nota }),
   corridas: () => call({ accion: 'corridas' }),
+  archivo: (corrida, nombre) => call({ accion: 'archivo', corrida, nombre }, null, 30000),
+  // Bitácora completa (la API la entrega en páginas de 400 eventos)
+  async eventos(corrida) {
+    const todos = [];
+    let desde = 0;
+    for (let i = 0; i < 20; i++) {
+      const st = await call({ accion: 'estado', corrida, desde, archivos: 0 });
+      todos.push(...st.eventos);
+      if (st.eventos.length < 400) break;
+      desde = st.eventos[st.eventos.length - 1].id;
+    }
+    return todos;
+  },
 };

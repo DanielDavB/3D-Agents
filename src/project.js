@@ -1,4 +1,5 @@
 // Configuración del MVP: oficina digital de Treve (propuesta de AI Lab School).
+import { demoDocumentos, demoHallazgos } from './demo-docs.js';
 // Todo lo financiero aquí es DATO DE EJEMPLO: no proviene de Treve.
 
 export const PROJECT = {
@@ -61,49 +62,10 @@ export const SOURCES = [
   { id: 'apis', name: 'APIs públicas', desc: 'Frankfurter (tipo de cambio) y Nager.Date (festivos)', agentId: 'ag_ext' },
 ];
 
-// Documentos que produce cada fuente en un ciclo (ficticios)
-export const DOCUMENTS = {
-  compaq: [
-    { name: 'facturas_sep_2026.xml', records: 148 },
-    { name: 'cxc_antiguedad_sep.xlsx', records: 61 },
-  ],
-  esfera: [{ name: 'nomina_quincenas_sep.csv', records: 84 }],
-  monday: [{ name: 'pipeline_comercial.json', records: 63 }],
-  bancos: [
-    { name: 'estado_cuenta_banco_A_sep.pdf', records: 412 },
-    { name: 'estado_cuenta_banco_B_sep.pdf', records: 236 },
-  ],
-  apis: [{ name: 'usd_mxn_y_festivos.json', records: 2 }],
-  excel: [
-    { name: 'reporte_ventas_sep.xlsx', records: 152 },
-    { name: 'gastos_marketing_sep.xlsx', records: 128 },
-  ],
-};
-
-// Hallazgos del auditor que requieren validación humana (ficticios)
-export const FINDINGS = [
-  {
-    id: 'f1',
-    title: 'Factura duplicada',
-    detail: 'F-2291 aparece dos veces en reporte_ventas_sep.xlsx ($48,500). En Compaq existe una sola vez.',
-    fix: 'Eliminar el registro duplicado del reporte de ventas',
-    doc: 'reporte_ventas_sep.xlsx',
-  },
-  {
-    id: 'f2',
-    title: 'Depósito sin factura',
-    detail: 'Depósito de $112,300 en banco A (14-sep) sin factura asociada. Coincide en monto con la factura F-2307 de Cliente Beta.',
-    fix: 'Asociar el depósito a F-2307 y marcarla como pagada',
-    doc: 'estado_cuenta_banco_A_sep.pdf',
-  },
-  {
-    id: 'f3',
-    title: 'Fórmula rota',
-    detail: 'gastos_marketing_sep.xlsx, fila 37: #REF! en el total de Eventos. El subtotal real por partidas es $410,000.',
-    fix: 'Usar el subtotal recalculado por partidas',
-    doc: 'gastos_marketing_sep.xlsx',
-  },
-];
+// Documentos y hallazgos de la demo: generados con el mismo simulador y la misma conciliación
+// que el orquestador real (src/demo-docs.js), así cada documento se puede consultar y descargar.
+export const DOCUMENTS = demoDocumentos();
+export const FINDINGS = demoHallazgos();
 
 // ---------- datos del dashboard (ficticios, MXN) ----------
 export const DATA = {

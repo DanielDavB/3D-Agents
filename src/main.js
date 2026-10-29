@@ -10,6 +10,8 @@ import { backend } from './backend.js';
 import { createLive } from './live.js';
 import { renderLiveSummary, renderLiveFindings, renderLiveFiles, renderLiveUsage } from './dashboard-live.js';
 import { setupThemes } from './themes.js';
+import { abrirDocumento, abrirTabla, descargar, descargarCsv } from './viewer.js';
+import { demoDoc } from './demo-docs.js';
 
 const $ = (s) => document.querySelector(s);
 const esc = (s = '') => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -161,7 +163,7 @@ function renderDetails() {
         <div class="stat"><b>${docs.reduce((n, d) => n + d.records, 0)}</b><span>Registros este ciclo</span></div>
       </div>
       <dl class="kv">${(docs.length ? docs : (DOCUMENTS[src.id] || []).map((d) => ({ doc: d.name, status: 'Pendiente' })))
-        .map((d) => `<dt>${esc(d.status)}</dt><dd>${esc(d.doc)}</dd>`)
+        .map((d) => `<dt>${esc(d.status)}</dt><dd><a href="#" data-ver-doc="${esc(d.doc)}">${esc(d.doc)}</a></dd>`)
         .join('')}</dl>
       <p class="hint">En el MVP la conexión es simulada. En producción, este agente extrae la información de ${esc(src.name)} de forma automática y programada.</p>`;
     return;
@@ -231,6 +233,11 @@ function renderDetails() {
 }
 
 $('#details').addEventListener('click', (e) => {
+  const docLink = e.target.closest('[data-ver-doc]');
+  if (docLink) {
+    e.preventDefault();
+    return verDocDemo(docLink.dataset.verDoc);
+  }
   const agentBtn = e.target.closest('[data-agent]');
   if (agentBtn) {
     e.preventDefault();
@@ -757,8 +764,89 @@ async function resolveMany(list) {
   }
 }
 
-$('#dashBody').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-resolver]');
+// ---------- documentos: consultar y descargar ----------
+const TIPO_DOC = { monday: 'Monday', compaq: 'Compaq', esfera: 'Esfera', bancos: 'Bancos', apis: 'APIs públicas', excel: 'Excel', reporte: 'Reporte generado' };
+async function bajarXlsx(nombre, hojas) {
+  const XLSX = await import('xlsx'); // se carga solo al descargar
+  const wb = XLSX.utils.book_new();
+  for (const h of hojas) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(h.filas, { header: h.columnas }), h.nombre.slice(0, 31));
+  descargar(nombre.replace(/\.[a-z]+$/i, '') + '.xlsx', new Blob([XLSX.write(wb, { type: 'array', bookType: 'xlsx' })], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+}
+function verDocDemo(nombre) {
+  const d = demoDoc(nombre);
+  if (!d) return log({ kind: 'info', text: `${nombre} no está disponible.` });
+  abrirDocumento({ titulo: d.nombre, subtitulo: `${TIPO_DOC[d.fuente] || d.fuente} · datos de ejemplo del simulador`, tipo: 'Documento · demo', nombreArchivo: d.nombre, cargar: async () => d, alDescargar: () => bajarDocDemo(d.nombre) });
+}
+function bajarDocDemo(nombre) {
+  const d = demoDoc(nombre);
+  if (!d) return;
+  if (d.original) return descargar(d.nombre, d.original.contenido, d.original.tipo);
+  if (d.nombre.endsWith('.csv')) return descargarCsv(d.nombre, d.hojas[0].filas, d.hojas[0].columnas);
+  bajarXlsx(d.nombre, d.hojas);
+}
+function verArchivoReal(nombre) {
+  const id = liveState?.corrida?.id;
+  if (!id) return;
+  const a = (liveFiles || liveState.archivos || []).find((x) => x.nombre === nombre);
+  abrirDocumento({
+    titulo: nombre, tipo: 'Documento', nombreArchivo: nombre,
+    subtitulo: `${TIPO_DOC[a?.fuente] || a?.fuente || ''} · ${a?.formato?.toUpperCase() || ''} · guardado en Supabase Storage`,
+    cargar: () => backend.archivo(id, nombre),
+  });
+}
+
+// Resultados del ciclo como tablas (consultables y descargables)
+const PASO_NOMBRE = { extraer: 'Extracción', mercado: 'APIs públicas', normalizar: 'Normalización', conciliar: 'Conciliación', juzgar: 'Juicio', almacenar: 'Almacén', indicadores: 'Indicadores', llenar_excel: 'Reporte Excel', conclusiones: 'Conclusiones', notificar: 'Alertas', cierre: 'Cierre' };
+async function tablaResultado(k) {
+  const st = liveState;
+  const per = st?.corrida?.periodo || '';
+  if (k === 'hallazgos')
+    return { titulo: `hallazgos_${per}`, hojas: [{ nombre: 'Hallazgos', filas: (st.hallazgos || []).map((h) => ({
+      Tipo: h.tipo.replace(/_/g, ' '), Severidad: h.severidad, Descripción: h.descripcion, Monto: h.monto ?? '',
+      Decisión: (h.decision?.choice || '').replace(/_/g, ' '), Confianza: h.decision ? Math.round((h.decision.confidence || 0) * 100) + ' %' : '',
+      Motor: h.decision?.fuente === 'jev' ? 'JEV' : 'Reglas', Estado: h.estado, Nota: h.nota || '' })) }] };
+  if (k === 'indicadores') {
+    const det = (c) => (st.indicadores || []).find((i) => i.clave === c)?.detalle || {};
+    const hojas = [{ nombre: 'Indicadores', filas: (st.indicadores || []).map((i) => ({ Indicador: i.clave.replace(/_/g, ' '), Valor: i.valor ?? '' })) }];
+    const extra = [['Ventas por canal', det('ventas_ganadas').por_canal], ['Cobranza por cliente', det('por_cobrar').por_cliente], ['Egresos por categoría', det('egresos_banco').por_categoria], ['Ventas por vendedor', det('oportunidades_ganadas').por_vendedor], ['Festivos', det('dias_habiles').feriados]];
+    for (const [nombre, filas] of extra) if (filas?.length) hojas.push({ nombre, filas });
+    return { titulo: `indicadores_${per}`, hojas };
+  }
+  if (k === 'tareas')
+    return { titulo: `cola_tareas_${per}`, hojas: [{ nombre: 'Tareas', filas: (st.tareas || []).map((t, i) => ({ '#': i + 1, Paso: PASO_NOMBRE[t.paso] || t.paso, Agente: store.agent(t.agente)?.name || t.agente, Estado: t.estado, Intentos: t.intentos, Error: t.error || '' })) }] };
+  if (k === 'bitacora') {
+    const evs = await backend.eventos(st.corrida.id);
+    return { titulo: `bitacora_${per}`, hojas: [{ nombre: 'Bitácora', filas: evs.filter((e) => e.tipo !== 'trabajando').map((e) => ({
+      Hora: new Date(e.created_at).toLocaleString('es-MX', { hour12: false }), De: nameOf(e.de), Para: nameOf(e.para), Tipo: e.tipo, Mensaje: e.mensaje })) }] };
+  }
+  if (k === 'demo-decisiones')
+    return { titulo: 'decisiones_validacion_demo', hojas: [{ nombre: 'Decisiones', filas: trace.decisions.map((d) => ({ Hallazgo: d.title, Detalle: d.detail, 'Corrección propuesta': d.fix, Decisión: d.ok ? 'Aprobada' : 'Rechazada', Hora: d.time })) }] };
+}
+const TITULO_RESULTADO = { hallazgos: 'Hallazgos de la conciliación', indicadores: 'Indicadores del dashboard', tareas: 'Cola de tareas', bitacora: 'Bitácora del orquestador', 'demo-decisiones': 'Decisiones de validación' };
+
+$('#dashBody').addEventListener('click', async (e) => {
+  const t = e.target;
+  const verDoc = t.closest('[data-ver-doc]')?.dataset.verDoc;
+  if (verDoc) return verDocDemo(verDoc);
+  const bajarDoc = t.closest('[data-bajar-doc]')?.dataset.bajarDoc;
+  if (bajarDoc) return bajarDocDemo(bajarDoc);
+  const verArch = t.closest('[data-ver-archivo]')?.dataset.verArchivo;
+  if (verArch) return verArchivoReal(verArch);
+  const verExp = t.closest('[data-ver-export]')?.dataset.verExport;
+  if (verExp)
+    return abrirDocumento({ titulo: TITULO_RESULTADO[verExp], subtitulo: liveState?.corrida?.periodo || '', tipo: 'Resultado', cargar: async () => { const r = await tablaResultado(verExp); return { hojas: r.hojas.map((h) => ({ ...h, columnas: Object.keys(h.filas[0] || {}) })) }; }, nombreArchivo: `${verExp}_${liveState?.corrida?.periodo || ''}` });
+  const exp = t.closest('[data-export]')?.dataset.export;
+  if (exp) {
+    try {
+      const r = await tablaResultado(exp);
+      if (r.hojas.length > 1) bajarXlsx(r.titulo, r.hojas.map((h) => ({ ...h, columnas: Object.keys(h.filas[0] || {}) })));
+      else descargarCsv(r.titulo, r.hojas[0].filas);
+    } catch (err) {
+      log({ kind: 'error', from: 'Sistema', to: 'Tú', text: `No se pudo exportar: ${err.message}` });
+    }
+    return;
+  }
+  const b = t.closest('[data-resolver]');
   if (b) {
     b.disabled = true;
     resolveMany([[b.dataset.resolver, b.dataset.decision]]);

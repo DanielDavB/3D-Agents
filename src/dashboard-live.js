@@ -118,7 +118,7 @@ export function renderLiveFindings(el, st) {
     return;
   }
   el.innerHTML = `<section class="card">
-    <header class="card-head"><b>Hallazgos de la conciliación</b><span>El código los detecta; ${hs.some((h) => h.decision?.fuente === 'jev') ? 'JEV' : 'las reglas fijas'} deciden qué hacer; tú validas los dudosos</span></header>
+    <header class="card-head"><b>Hallazgos de la conciliación</b><span><button class="mini" data-export="hallazgos">Descargar CSV</button> · El código los detecta; ${hs.some((h) => h.decision?.fuente === 'jev') ? 'JEV' : 'las reglas fijas'} deciden qué hacer; tú validas los dudosos</span></header>
     <table class="data"><tr><th>Tipo</th><th>Descripción</th><th class="num">Monto</th><th>Decisión</th><th>Estado</th><th></th></tr>
     ${hs
       .map((h) => {
@@ -143,7 +143,18 @@ export function renderLiveFiles(el, st, { store }) {
       <header class="card-head"><b>Archivos del ciclo</b><span>Fuentes crudas tal como llegaron y reportes generados · guardados en Supabase Storage</span></header>
       ${files.length ? `<table class="data"><tr><th>Archivo</th><th>Fuente</th><th>Formato</th><th class="num">Filas</th><th></th></tr>
         ${files.map((a) => `<tr><td class="mono">${esc(a.nombre)}</td><td>${esc(a.fuente)}</td><td>${esc(a.formato.toUpperCase())}</td><td class="num">${a.filas ?? ''}</td>
-          <td>${a.url ? `<a class="mini accent" href="${esc(a.url)}" target="_blank" rel="noopener">Descargar</a>` : '<span class="muted">…</span>'}</td></tr>`).join('')}</table>` : '<p class="muted">Aún no hay archivos.</p>'}
+          <td><div class="row tight"><button class="mini" data-ver-archivo="${esc(a.nombre)}">Ver</button>${a.url ? `<a class="mini accent" href="${esc(a.url)}" download="${esc(a.nombre)}" target="_blank" rel="noopener">Descargar</a>` : '<span class="muted">…</span>'}</div></td></tr>`).join('')}</table>` : '<p class="muted">Aún no hay archivos.</p>'}
+    </section>
+    <section class="card">
+      <header class="card-head"><b>Resultados del ciclo</b><span>Consulta o descarga en CSV (abre en Excel) lo que calcularon los agentes</span></header>
+      <table class="data">
+        ${[
+          ['hallazgos', 'Hallazgos de la conciliación', `${(st.hallazgos || []).length} hallazgos con su decisión y estado`],
+          ['indicadores', 'Indicadores del dashboard', `${(st.indicadores || []).length} indicadores y sus desgloses`],
+          ['bitacora', 'Bitácora del orquestador', 'Cada mensaje entre agentes, con hora'],
+          ['tareas', 'Cola de tareas', `${(st.tareas || []).length} pasos con su estado e intentos`],
+        ].map(([k, t, d]) => `<tr><td><b>${t}</b><br><small class="muted">${d}</small></td><td><div class="row tight"><button class="mini" data-ver-export="${k}">Ver</button><button class="mini accent" data-export="${k}">Descargar CSV</button></div></td></tr>`).join('')}
+      </table>
     </section>
     <section class="card">
       <header class="card-head"><b>Cola del orquestador</b><span>Cada paso es una tarea de un agente en treve.tareas</span></header>
