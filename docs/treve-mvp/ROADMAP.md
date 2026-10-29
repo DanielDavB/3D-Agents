@@ -119,8 +119,8 @@ ser necesario para el MVP; queda como opción si algún día un agente necesita 
 | Fase | Estado |
 |---|---|
 | 0 · Preparación | En curso: proyecto de Supabase creado y esquema aplicado |
-| 1 · Simulador de fuentes | Hecha (falta revisión de Daniel) |
-| 2 · Orquestador | En curso |
-| 3 · Visualizador | Pendiente |
+| 1 · Simulador de fuentes | Hecha: escenarios normal, sucio y caída activos en n8n |
+| 2 · Orquestador | Hecha y probada en local (6/6 discrepancias, 0 falsas alarmas); falta desplegar la Edge Function |
+| 3 · Visualizador | Hecha: 3D con eventos reales, validación humana, dashboard y 3 estilos (falta login con Google) |
 | 4 · Puesta en marcha | Pendiente |
 | 5 · Demo | Pendiente |
