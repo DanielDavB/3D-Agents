@@ -29,11 +29,11 @@ function dialog() {
   dlg.id = 'viewerDialog';
   dlg.className = 'viewer';
   dlg.innerHTML = `<div class="viewer-head">
-      <div><span class="pill" id="vwKind">Documento</span><h3 id="vwTitle"></h3><small id="vwSub" class="muted"></small></div>
+      <div><h3 id="vwTitle"></h3><small class="muted"><span id="vwKind">Documento</span> · <span id="vwSub"></span></small></div>
       <button class="icon-btn close" data-vw="close" title="Cerrar">✕</button>
     </div>
     <div class="viewer-tools">
-      <nav class="tabs" id="vwTabs"></nav>
+      <nav class="tabs" id="vwTabs" role="tablist" aria-label="Hojas del documento"></nav>
       <input id="vwSearch" type="search" placeholder="Buscar en la hoja…" autocomplete="off" />
     </div>
     <div class="viewer-body" id="vwBody"></div>
@@ -93,12 +93,12 @@ export async function abrirDocumento({ titulo, subtitulo = '', tipo = 'Documento
     const total = h.total ?? h.filas.length;
     $('#vwCount').textContent = `${filas.length.toLocaleString('es-MX')} de ${total.toLocaleString('es-MX')} filas${filas.length > VISIBLES ? ` · se muestran ${VISIBLES}, usa el buscador` : ''}${total > h.filas.length ? ' · vista limitada' : ''}`;
   };
-  $('#vwTabs').innerHTML = data.hojas.length > 1 ? data.hojas.map((h, i) => `<button data-hoja="${i}" class="${i ? '' : 'on'}">${esc(h.nombre)}</button>`).join('') : '';
+  $('#vwTabs').innerHTML = data.hojas.length > 1 ? data.hojas.map((h, i) => `<button role="tab" aria-selected="${!i}" data-hoja="${i}" class="${i ? '' : 'on'}">${esc(h.nombre)}</button>`).join('') : '';
   $('#vwTabs').onclick = (e) => {
     const b = e.target.closest('[data-hoja]');
     if (!b) return;
     activa = Number(b.dataset.hoja);
-    $('#vwTabs').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+    $('#vwTabs').querySelectorAll('button').forEach((x) => (x.classList.toggle('on', x === b), x.setAttribute('aria-selected', String(x === b))));
     pintar();
   };
   $('#vwSearch').oninput = pintar;

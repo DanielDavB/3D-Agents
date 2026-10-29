@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Treve · Oficina digital (MVP)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link href="https://fonts.googleapis.com/css2?family=Carlito:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;600;700&family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Carlito:ital,wght@0,400;0,700;1,400&family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
@@ -78,7 +78,7 @@
         <h2>Organización</h2>
         <button id="btnToggleSidebar" class="icon-btn" title="Contraer">⟨</button>
       </div>
-      <div id="tree"></div>
+      <div id="tree" role="tree" aria-label="Oficinas y agentes"></div>
     </aside>
 
     <div id="right">
@@ -88,13 +88,12 @@
           <h2><span class="live-dot"></span>Actividad</h2>
           <button id="btnClearFeed" class="icon-btn" title="Limpiar">Limpiar</button>
         </div>
-        <ol id="feed"></ol>
+        <ol id="feed" role="log" aria-live="polite" aria-relevant="additions" aria-label="Actividad de los agentes"></ol>
       </section>
     </div>
 
     <section id="intro" class="panel intro">
       <button class="icon-btn close" data-act="close-intro" title="Cerrar">✕</button>
-      <span class="pill">MVP · Oficina digital</span>
       <h3>Toda la información de Treve, consolidada por agentes</h3>
       <ol class="steps">
         <li><b>1</b><div><strong>Fuentes</strong><span>Compaq, Esfera, Monday, bancos y Excel, extraídos sin captura manual</span></div></li>
@@ -111,24 +110,22 @@
     <section id="dash" class="panel dash" hidden>
       <header class="dash-head">
         <div>
-          <span class="pill">Dashboard ejecutivo</span>
           <h3 id="dashTitle">Treve</h3>
         </div>
         <nav class="tabs" role="tablist">
-          <button role="tab" data-tab="summary" class="on">Resumen</button>
-          <button role="tab" data-tab="findings" data-live>Hallazgos</button>
-          <button role="tab" data-tab="trace">Trazabilidad</button>
-          <button role="tab" data-tab="usage">Consumo de IA</button>
+          <button role="tab" data-tab="summary" class="on" aria-selected="true" aria-controls="dashBody">Resumen</button>
+          <button role="tab" data-tab="findings" data-live aria-selected="false" aria-controls="dashBody" tabindex="-1">Hallazgos</button>
+          <button role="tab" data-tab="trace" aria-selected="false" aria-controls="dashBody" tabindex="-1">Trazabilidad</button>
+          <button role="tab" data-tab="usage" aria-selected="false" aria-controls="dashBody" tabindex="-1">Consumo de IA</button>
         </nav>
         <button class="icon-btn close" data-act="close-dash" title="Cerrar">✕</button>
       </header>
-      <div class="dash-body" id="dashBody"></div>
+      <div class="dash-body" id="dashBody" role="tabpanel" tabindex="0"></div>
       <p class="dash-foot" id="dashFoot">Datos de ejemplo para el MVP · no corresponden a información real de Treve.</p>
     </section>
 
     <dialog id="validationDialog">
       <form method="dialog" id="validationForm">
-        <span class="pill">Validación humana</span>
         <h3>El auditor necesita tu aprobación</h3>
         <p class="hint">Antes de publicar en el dashboard, revisa las correcciones propuestas. Las que rechaces quedarán como observadas.</p>
         <div id="findings" class="findings"></div>
@@ -140,7 +137,6 @@
 
     <dialog id="runDialog">
       <form method="dialog" id="runForm">
-        <span class="pill">Ciclo de datos</span>
         <h3>¿Qué periodo consolidamos?</h3>
         <p class="hint" id="engineStatus">Revisando el orquestador…</p>
         <div class="grid2">
@@ -171,7 +167,6 @@
 
     <dialog id="officeDialog">
       <form method="dialog" id="officeForm">
-        <span class="pill">Oficina</span>
         <h3 id="officeTitle">Nueva oficina</h3>
         <label>Nombre <input name="name" required placeholder="Ej. Finanzas" /></label>
         <label>Depende de <select name="parentId"></select></label>
@@ -185,7 +180,6 @@
 
     <dialog id="agentDialog">
       <form method="dialog" id="agentForm">
-        <span class="pill">Agente</span>
         <h3 id="agentTitle">Nuevo agente</h3>
         <div class="grid2">
           <label>Nombre <input name="name" required placeholder="Ej. Copywriter" /></label>
@@ -212,7 +206,6 @@
 
     <dialog id="brainDialog">
       <form method="dialog" id="brainForm">
-        <span class="pill">Cerebro</span>
         <h3>Configurar el cerebro</h3>
         <p class="hint">El Orquestador usa Claude para decidir a qué agentes delegar y qué APIs llamar. Haiku 4.5 es el modelo más barato: una tarea típica cuesta menos de un centavo de dólar.</p>
         <label>API key de Anthropic <input name="apiKey" type="password" placeholder="sk-ant-..." autocomplete="off" /></label>

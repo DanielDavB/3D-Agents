@@ -29,13 +29,13 @@ export const THEMES = {
   },
   claro: {
     label: 'Claro ejecutivo',
-    hint: 'Papel cálido, sin brillo',
+    hint: 'Gris claro, sin brillo',
     scene: {
-      background: '#efece6', fog: [150, 320], ground: '#e6e1d8', dots: '#c9c1b4',
-      hemi: ['#ffffff', '#d8d2c8', 1.7], sun: 1.35, bloom: [0, 0, 1], pixel: 1, toon: false,
+      background: '#eef0f3', fog: [150, 320], ground: '#e3e6eb', dots: '#c4c9d1',
+      hemi: ['#ffffff', '#d4d8df', 1.7], sun: 1.35, bloom: [0, 0, 1], pixel: 1, toon: false,
       colors: {
-        '#1c1c1c': '#dcd6cc', '#29231f': '#f2e8dc', '#262626': '#fbfaf7', '#d2d2d2': '#d9c4a3', '#2b2b2b': '#5b5b5b',
-        '#2f2f2f': '#c9b29a', '#dedede': '#ffffff', '#121212': '#2a2a2a', '#4a4a4a': '#8a8a8a',
+        '#1c1c1c': '#d8dce3', '#29231f': '#f1e6dc', '#262626': '#fbfbfc', '#d2d2d2': '#cfd4dc', '#2b2b2b': '#5b5b5b',
+        '#2f2f2f': '#b9bec7', '#dedede': '#ffffff', '#121212': '#2a2a2a', '#4a4a4a': '#8a8a8a',
         // remates y líneas blancas de las salas: oscuros para que se vean sobre fondo claro
         '#b3b3b3': '#3a3a3a', '#ffffff': '#2b2b2b',
       },

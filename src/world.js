@@ -58,8 +58,35 @@ function layoutOffices(offices) {
   return { root, pos };
 }
 
+// Sin WebGL (aceleración apagada, navegadores restringidos) la app sigue funcionando sin la escena 3D
+function hasWebGL() {
+  try {
+    const c = document.createElement('canvas');
+    return !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl')));
+  } catch {
+    return false;
+  }
+}
+function createFallbackWorld(container) {
+  container.classList.add('no-3d');
+  container.innerHTML = `<div class="no-3d-note" role="status"><b>La oficina 3D no está disponible en este navegador</b>
+    <span>No encontramos WebGL. El ciclo de datos, la organización, la actividad, el dashboard y los documentos funcionan igual.</span></div>`;
+  const noop = () => {};
+  return {
+    rebuild: noop, focus: noop, setSelected: noop, pulse: noop, setTimeScale: noop, setAutoRotate: noop, setWorking: noop, setTheme: noop, setLowPower: noop,
+    hasAgent: () => false,
+    sendPacket: (_a, _b, { onArrive } = {}) => (setTimeout(() => onArrive?.(), 250), true),
+  };
+}
+
 export function createWorld(container, { onSelect } = {}) {
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  if (!hasWebGL()) return createFallbackWorld(container);
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+  } catch {
+    return createFallbackWorld(container);
+  }
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -82,7 +109,10 @@ export function createWorld(container, { onSelect } = {}) {
   controls.maxPolarAngle = Math.PI * 0.47;
   controls.minDistance = 8;
   controls.maxDistance = 260;
-  controls.autoRotate = true;
+  // Movimiento reducido: sin giro automático ni tráfico de ambiente; los mensajes del ciclo sí se ven
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  controls.autoRotate = !reduceMotion.matches;
+  reduceMotion.addEventListener?.('change', (e) => e.matches && (controls.autoRotate = false));
   controls.autoRotateSpeed = 0.35;
 
   const composer = new EffectComposer(renderer);
@@ -193,6 +223,7 @@ export function createWorld(container, { onSelect } = {}) {
     const tag = label(`<span class="dot" style="background:${office.color}"></span>${office.name}`, 'label office-label');
     tag.position.set(0, FLOOR_Y + WALL_H + 0.9, -depth / 2);
     tag.element.dataset.officeId = office.id;
+    tag.element.setAttribute('aria-hidden', 'true');
     tag.element.addEventListener('click', () => onSelect?.({ type: 'office', id: office.id }));
     g.add(tag);
 
@@ -229,6 +260,7 @@ export function createWorld(container, { onSelect } = {}) {
     const tag = label(`<b>${agent.name}</b><span class="prov">${prov.short}</span>`, 'label agent-label');
     tag.position.set(0, 3.25, 0);
     tag.element.addEventListener('click', () => onSelect?.({ type: 'agent', id: agent.id }));
+    tag.element.setAttribute('aria-hidden', 'true');
     g.add(tag);
 
     ws.pickables.forEach((m) => {
@@ -682,9 +714,6 @@ export function createWorld(container, { onSelect } = {}) {
       v.mat.emissiveIntensity = v.pulse * 0.9;
       v.ring.scale.setScalar(1 + v.pulse * 0.6);
     }
-    world.traverse((o) => {
-      if (o.userData.spin) o.rotation.z += rawDt * o.userData.spin;
-    });
     extOrb.rotation.y += rawDt * 0.3;
     extRing.rotation.z += rawDt * 0.5;
     extOrb.userData.pulse = Math.max(0, (extOrb.userData.pulse || 0) - rawDt);
@@ -720,7 +749,7 @@ export function createWorld(container, { onSelect } = {}) {
 
     // Tráfico ambiental por los corredores
     ambientAcc += dt;
-    if (ambientAcc > 0.7) {
+    if (ambientAcc > 0.7 && !reduceMotion.matches) {
       ambientAcc = 0;
       spawnAmbient();
     }
@@ -737,10 +766,16 @@ export function createWorld(container, { onSelect } = {}) {
       d.mesh.position.copy(d.curve.getPointAt(d.dir > 0 ? d.t : 1 - d.t));
     }
 
-    composer.render();
-    labels.render(scene, camera);
+    // Con el dashboard abierto la escena casi no se ve: se dibuja a ~15 cuadros por segundo
+    frameSkip = (frameSkip + 1) % (lowPower && !packets.length ? 4 : 1);
+    if (!frameSkip) {
+      composer.render();
+      labels.render(scene, camera);
+    }
     requestAnimationFrame(tick);
   }
+  let frameSkip = 0;
+  let lowPower = false;
   requestAnimationFrame(tick);
 
   return {
@@ -754,5 +789,6 @@ export function createWorld(container, { onSelect } = {}) {
     hasAgent: (id) => agentViews.has(id),
     setWorking: (id, on) => (on ? working.add(id) : working.delete(id)),
     setTheme,
+    setLowPower: (on) => (lowPower = on),
   };
 }

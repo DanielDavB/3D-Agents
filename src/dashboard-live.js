@@ -74,7 +74,7 @@ const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v
 export function renderLiveSummary(el, st, { store }) {
   const i = ind(st);
   if (!st.indicadores?.length) {
-    el.innerHTML = `<div class="empty"><span class="pill">Ciclo en curso</span><h3>Los agentes están trabajando</h3><p>Los indicadores aparecen cuando el Almacén publica los datos conciliados.</p></div>`;
+    el.innerHTML = `<div class="empty"><h3>Los agentes están trabajando</h3><p>Los indicadores aparecen cuando el Almacén publica los datos conciliados.</p></div>`;
     return;
   }
   const c = st.corrida;

@@ -1,7 +1,9 @@
 // Cerebro real: el Orquestador usa Claude (por defecto Haiku 4.5, el modelo más barato)
 // con tool use. Cada agente de la organización es una herramienta a la que puede delegar,
 // y además puede llamar a cualquier API con la herramienta http_request.
-import Anthropic from '@anthropic-ai/sdk';
+// El SDK de Anthropic se descarga solo la primera vez que el cerebro hace una llamada
+let sdk;
+const loadSdk = () => (sdk ||= import('@anthropic-ai/sdk').then((m) => m.default));
 import { PROJECT } from './project.js';
 
 const SETTINGS_KEY = '3d-agents:brain';
@@ -104,11 +106,11 @@ export function createBrain({ store, world, log, bump, onUsage, onResult }) {
   let busy = false;
   const history = []; // pares objetivo/respuesta (solo texto) para dar contexto entre peticiones
 
-  const client = (apiKey) => new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
+  const client = async (apiKey) => new (await loadSdk())({ apiKey, dangerouslyAllowBrowser: true });
 
   // Un pedido a Claude + contabilidad de costo
   async function callClaude(apiKey, params, agentId) {
-    const res = await client(apiKey).messages.create(params);
+    const res = await (await client(apiKey)).messages.create(params);
     onUsage?.(cost(params.model, res.usage), res.usage, agentId);
     if (res.stop_reason === 'refusal') throw new Error('El modelo rechazó la petición.');
     return res;

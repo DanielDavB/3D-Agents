@@ -65,6 +65,8 @@ const trace = {
 
 const world = createWorld($('#scene'), { onSelect: (sel) => select(sel, true) });
 const sim = createSim({ store, world, log });
+// Movimiento reducido: el tráfico de ambiente arranca en pausa (se puede activar en el menú ⋯)
+const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 let spent = 0;
 const brain = createBrain({
   store,
@@ -106,22 +108,48 @@ function renderTree() {
     const kids = store.children(o.id);
     const sel = (t, id) => (selection?.type === t && selection.id === id ? ' selected' : '');
     return `<div class="tree-office">
-      <div class="tree-row office${sel('office', o.id)}" data-office="${o.id}">
+      <div class="tree-row office${sel('office', o.id)}" data-office="${o.id}" role="treeitem" tabindex="-1" aria-selected="${selection?.type === 'office' && selection.id === o.id}" aria-expanded="true">
         <span class="dot" style="background:${o.color}"></span>${esc(o.name)}<span class="count">${agents.length}</span>
       </div>
       <div class="tree-children">
         ${agents
           .map((a) => {
             const p = provider(a.provider);
-            return `<div class="tree-row agent${sel('agent', a.id)}" data-agent="${a.id}"><span class="dot" style="background:${p.color}"></span>${esc(a.name)}<small>${p.short}</small></div>`;
+            return `<div class="tree-row agent${sel('agent', a.id)}" data-agent="${a.id}" role="treeitem" tabindex="-1" aria-selected="${selection?.type === 'agent' && selection.id === a.id}"><span class="dot" style="background:${p.color}"></span>${esc(a.name)}<small>${p.short}</small></div>`;
           })
           .join('')}
         ${kids.map(officeNode).join('')}
       </div>
     </div>`;
   };
-  $('#tree').innerHTML = root ? officeNode(root) : '';
+  const tree = $('#tree');
+  const hadFocus = tree.contains(document.activeElement) ? document.activeElement.dataset : null;
+  tree.innerHTML = root ? officeNode(root) : '';
+  // Un solo elemento del árbol entra en el orden de Tab (el seleccionado o el primero); las flechas recorren el resto
+  const rows = [...tree.querySelectorAll('.tree-row')];
+  const active = rows.find((r) => r.getAttribute('aria-selected') === 'true') || rows[0];
+  if (active) active.tabIndex = 0;
+  if (hadFocus) rows.find((r) => (hadFocus.agent && r.dataset.agent === hadFocus.agent) || (hadFocus.office && r.dataset.office === hadFocus.office))?.focus();
 }
+$('#tree').addEventListener('keydown', (e) => {
+  const row = e.target.closest('.tree-row');
+  if (!row) return;
+  const rows = [...$('#tree').querySelectorAll('.tree-row')];
+  const i = rows.indexOf(row);
+  const go = (j) => {
+    const r = rows[Math.max(0, Math.min(rows.length - 1, j))];
+    rows.forEach((x) => (x.tabIndex = -1));
+    r.tabIndex = 0;
+    r.focus();
+  };
+  if (e.key === 'ArrowDown') go(i + 1);
+  else if (e.key === 'ArrowUp') go(i - 1);
+  else if (e.key === 'Home') go(0);
+  else if (e.key === 'End') go(rows.length - 1);
+  else if (e.key === 'Enter' || e.key === ' ') select(row.dataset.agent ? { type: 'agent', id: row.dataset.agent } : { type: 'office', id: row.dataset.office }, true);
+  else return;
+  e.preventDefault();
+});
 $('#tree').addEventListener('click', (e) => {
   const row = e.target.closest('.tree-row');
   if (!row) return;
@@ -155,9 +183,8 @@ function renderDetails() {
     const docs = trace.rows.filter((r) => r.source === src.name);
     box.innerHTML = `
       <button class="icon-btn close" data-act="close">✕</button>
-      <span class="pill">Fuente de datos</span>
       <h3>${esc(src.name)}</h3>
-      <div class="sub">${esc(src.desc)} · la lee ${agent ? `<a href="#" data-agent="${agent.id}">${esc(agent.name)}</a>` : 'ningún agente'}</div>
+      <div class="sub">Fuente de datos · ${esc(src.desc)} · la lee ${agent ? `<a href="#" data-agent="${agent.id}">${esc(agent.name)}</a>` : 'ningún agente'}</div>
       <div class="stats">
         <div class="stat"><b>${(DOCUMENTS[src.id] || []).length}</b><span>Documentos por ciclo</span></div>
         <div class="stat"><b>${docs.reduce((n, d) => n + d.records, 0)}</b><span>Registros este ciclo</span></div>
@@ -185,9 +212,8 @@ function renderDetails() {
         : 'Sin endpoint propio: la IA simula su rol (edítalo para conectarlo de verdad).';
     box.innerHTML = `
       <button class="icon-btn close" data-act="close">✕</button>
-      <span class="pill"><i style="width:7px;height:7px;border-radius:50%;background:${p.color}"></i>${p.label}</span>
-      <span class="pill light">${connected ? 'Conectado' : 'Simulado por IA'}</span>
       <h3>${esc(a.name)}</h3>
+      <div class="chips"><span class="pill"><i style="width:7px;height:7px;border-radius:50%;background:${p.color}"></i>${p.label}</span><span class="pill light">${connected ? 'Conectado' : 'Simulado por IA'}</span></div>
       <div class="sub">${esc(a.role || 'Sin descripción')}</div>
       <div class="stats">
         <div class="stat"><b>${st.sent}</b><span>Enviados</span></div>
@@ -213,8 +239,8 @@ function renderDetails() {
     const isRoot = !o.parentId;
     box.innerHTML = `
       <button class="icon-btn close" data-act="close">✕</button>
-      <span class="pill"><i style="width:7px;height:7px;border-radius:50%;background:${o.color}"></i>${isRoot ? 'Oficina principal' : 'Oficina'}</span>
       <h3>${esc(o.name)}</h3>
+      <div class="chips"><span class="pill"><i style="width:7px;height:7px;border-radius:50%;background:${o.color}"></i>${isRoot ? 'Oficina principal' : 'Oficina'}</span></div>
       <div class="sub">${isRoot ? 'Centro de mando' : `Depende de ${esc(parent?.name || '-')}`}</div>
       <div class="stats">
         <div class="stat"><b>${agents.length}</b><span>Agentes</span></div>
@@ -402,6 +428,10 @@ btnPlay.onclick = () => {
   btnPlay.textContent = sim.isRunning() ? '⏸ Auto' : '▶ Auto';
 };
 $('#speed').onchange = (e) => sim.setSpeed(Number(e.target.value));
+if (prefersReducedMotion) {
+  sim.setRunning(false);
+  btnPlay.textContent = '▶ Auto';
+}
 $('#btnAddOffice').onclick = () => openOfficeDialog(null, selection?.type === 'office' ? selection.id : undefined);
 $('#btnAddAgent').onclick = () => openAgentDialog(null);
 $('#btnClearFeed').onclick = () => (feed.innerHTML = '');
@@ -533,10 +563,24 @@ function refreshPanels() {
 function openDash(which = tab) {
   tab = which;
   dash.hidden = false;
-  dash.querySelectorAll('[data-tab]').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
+  dash.querySelectorAll('[data-tab]').forEach((b) => {
+    b.classList.toggle('on', b.dataset.tab === tab);
+    b.setAttribute('aria-selected', String(b.dataset.tab === tab));
+    b.tabIndex = b.dataset.tab === tab ? 0 : -1;
+  });
   refreshPanels();
   if (liveState && tab === 'trace') loadFiles();
 }
+dash.querySelector('.tabs').addEventListener('keydown', (e) => {
+  if (!['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+  const tabs = [...dash.querySelectorAll('[data-tab]')].filter((b) => !b.hidden);
+  const i = tabs.findIndex((b) => b.dataset.tab === tab);
+  const next = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+  openDash(next.dataset.tab);
+  next.focus();
+});
+// Con el dashboard abierto, la escena 3D se dibuja con menos cuadros
+new MutationObserver(() => world.setLowPower(!dash.hidden)).observe(dash, { attributes: true, attributeFilter: ['hidden'] });
 dash.querySelector('.tabs').addEventListener('click', (e) => {
   const b = e.target.closest('[data-tab]');
   if (b) openDash(b.dataset.tab);

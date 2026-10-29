@@ -200,7 +200,6 @@ function wire(root) {
 export function renderSummary(el, { store, ready, quality }) {
   if (!ready) {
     el.innerHTML = `<div class="empty">
-      <span class="pill">Sin datos consolidados</span>
       <h3>Ejecuta el ciclo de datos</h3>
       <p>Los agentes extraerán la información de Compaq, Esfera, Monday, bancos y Excel; la consolidarán, te pedirán validar las discrepancias y publicarán aquí los indicadores.</p>
       <button class="btn accent" data-act="run-cycle">▶ Ejecutar ciclo de datos</button>
