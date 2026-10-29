@@ -3,7 +3,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { generateSimData } from '../src/sim/generator.js';
+import { generateSimData } from '../../supabase/functions/treve/lib/sim-generator.js';
 
 const periodo = process.argv[2] || '2026-09';
 const version = Number(process.argv[3] || 1);

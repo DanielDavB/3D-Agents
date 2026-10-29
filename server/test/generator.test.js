@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { generateSimData } from '../src/sim/generator.js';
+import { generateSimData } from '../../supabase/functions/treve/lib/sim-generator.js';
 
 const parseMx = (s) => {
   const [d, m, y] = s.split('/');

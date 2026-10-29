@@ -3,12 +3,15 @@
 //
 // - Mismo periodo + versión = exactamente los mismos datos (semilla derivada del periodo).
 // - Siembra discrepancias conocidas y las devuelve en `respuestas` para medir aciertos.
-// - Es autocontenido (sin imports): el mismo código se usa dentro del nodo Code de n8n.
+// - Es autocontenido (sin imports): el mismo código se usa dentro del nodo Code de n8n
+//   y como respaldo local del orquestador si el simulador no responde.
 
 export function generateSimData(periodo = '2026-09', options = {}) {
   const version = Number(options.version || 1);
+  const escenario = String(options.escenario || 'normal');
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(periodo)) throw new Error('periodo inválido, usa AAAA-MM');
   if (![1, 2].includes(version)) throw new Error('version inválida, usa 1 o 2');
+  if (!ESCENARIOS.includes(escenario)) throw new Error(`escenario inválido, usa ${ESCENARIOS.join(', ')}`);
 
   // ---------- utilidades deterministas ----------
   let h = 2166136261;
@@ -200,21 +203,45 @@ export function generateSimData(periodo = '2026-09', options = {}) {
     },
   };
 
-  const compaq = facturas.map((f) =>
+  let compaq = facturas.map((f) =>
     version === 1
       ? { Folio: f.folio, Fecha: mx(f.fecha), RFC: f.rfc, 'Razón social': f.razon, Subtotal: f.subtotal, IVA: f.iva, Total: f.total, Estatus: f.estatus, 'Fecha de pago': f.fechaPago ? mx(f.fechaPago) : '' }
       : { 'Fecha emisión': mx(f.fecha), 'No. Documento': f.folio, Cliente: f.razon, 'R.F.C.': f.rfc, 'Importe total': f.total, Importe: f.subtotal, Impuestos: f.iva, 'Situación': f.estatus === 'Pagada' ? 'PAGADO' : 'POR COBRAR', 'Pagado el': f.fechaPago ? mx(f.fechaPago) : '' },
   );
 
-  const esfera = nomina.map((r) => ({ 'No. Empleado': r.num, Nombre: r.nombre, Departamento: r.depto, Periodo: r.periodo, Percepciones: r.percepciones, Deducciones: r.deducciones, Neto: r.neto }));
+  let esfera = nomina.map((r) => ({ 'No. Empleado': r.num, Nombre: r.nombre, Departamento: r.depto, Periodo: r.periodo, Percepciones: r.percepciones, Deducciones: r.deducciones, Neto: r.neto }));
 
-  const bancos = movs.map((m) => ({ Fecha: mx(m.fecha), Concepto: m.concepto, Referencia: m.referencia, Cargo: m.cargo || '', Abono: m.abono || '', Saldo: m.saldo }));
+  let bancos = movs.map((m) => ({ Fecha: mx(m.fecha), Concepto: m.concepto, Referencia: m.referencia, Cargo: m.cargo || '', Abono: m.abono || '', Saldo: m.saldo }));
+
+  // Escenario "sucio": como un Excel capturado a mano (montos con $ y comas, espacios de más,
+  // estatus en mayúsculas y una fila vacía). Los datos de fondo y las respuestas no cambian.
+  if (escenario === 'sucio') {
+    const money = (n) => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const ensuciar = (rows) => {
+      const out = rows.map((r) => {
+        const o = {};
+        for (const [k, v] of Object.entries(r)) {
+          if (typeof v === 'number' && rnd() < 0.5) o[k] = money(v);
+          else if (/^(Estatus|Situación)$/.test(k) && rnd() < 0.5) o[k] = String(v).toUpperCase();
+          else if (typeof v === 'string' && v && rnd() < 0.35) o[k] = `  ${v} `;
+          else o[k] = v;
+        }
+        return o;
+      });
+      out.splice(1 + Math.floor(rnd() * (out.length - 1)), 0, Object.fromEntries(Object.keys(rows[0]).map((k) => [k, ''])));
+      return out;
+    };
+    compaq = ensuciar(compaq);
+    esfera = ensuciar(esfera);
+    bancos = ensuciar(bancos);
+  }
 
   // ---------- hoja de respuestas ----------
   const nameOf = (id) => CLIENTES.find((c) => c.id === id);
   const respuestas = {
     periodo,
     version,
+    escenario,
     discrepancias: [
       { id: 'D1', tipo: 'venta_sin_factura', fuentes: ['monday', 'compaq'], descripcion: `La venta ganada ${dSinFactura.id} de ${dSinFactura.cliente} ($${dSinFactura.monto}) no tiene factura en Compaq`, referencia: { dealId: dSinFactura.id }, monto: dSinFactura.monto },
       { id: 'D2', tipo: 'oportunidad_duplicada', fuentes: ['monday'], descripcion: `La oportunidad ${dDuplicada.id} está capturada dos veces en Monday (duplicado ${dup.id})`, referencia: { dealId: dDuplicada.id, duplicadoId: dup.id }, monto: dDuplicada.monto },
@@ -237,5 +264,8 @@ export function generateSimData(periodo = '2026-09', options = {}) {
     },
   };
 
-  return { periodo, version, monday, compaq, esfera, bancos, respuestas };
+  return { periodo, version, escenario, monday, compaq, esfera, bancos, respuestas };
 }
+
+// normal: datos limpios · sucio: captura manual desordenada · caida: el banco no responde (lo aplica el webhook)
+const ESCENARIOS = ['normal', 'sucio', 'caida'];

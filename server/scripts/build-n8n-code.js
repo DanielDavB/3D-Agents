@@ -1,5 +1,5 @@
 // Genera el código (n8n Workflow SDK) del flujo "Treve · Simulador de fuentes".
-// El nodo Code incluye el mismo generador de src/sim/generator.js, para que n8n y las
+// El nodo Code incluye el mismo generador de supabase/functions/treve/lib/sim-generator.js, para que n8n y las
 // pruebas locales produzcan exactamente los mismos datos.
 //
 // Uso: node scripts/build-n8n-code.js > ../n8n/simulador-fuentes.workflow.js
@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const generator = readFileSync(join(here, '../src/sim/generator.js'), 'utf8').replace('export function generateSimData', 'function generateSimData');
+const generator = readFileSync(join(here, '../../supabase/functions/treve/lib/sim-generator.js'), 'utf8').replace('export function generateSimData', 'function generateSimData');
 
 const handler = `
 // ---- Selección de la fuente pedida (?fuente=&periodo=&version=) ----
@@ -16,11 +16,12 @@ const q = $input.first().json.query || {};
 const fuente = String(q.fuente || '').toLowerCase();
 const periodo = String(q.periodo || '2026-09');
 const version = Number(q.version || 1);
+const escenario = String(q.escenario || 'normal').toLowerCase();
 const FUENTES = ['monday', 'compaq', 'esfera', 'bancos', 'respuestas'];
 
 let d;
 try {
-  d = generateSimData(periodo, { version });
+  d = generateSimData(periodo, { version, escenario });
 } catch (e) {
   return [{ json: { route: 'error', status: 400, payload: { error: e.message } } }];
 }
@@ -34,6 +35,11 @@ const toCsv = (rows) => {
   return '\\ufeff' + [cols.join(','), ...rows.map((r) => cols.map((c) => cell(r[c])).join(','))].join('\\r\\n');
 };
 
+// Escenario "caida": el banco no responde, para probar la resiliencia del orquestador
+if (escenario === 'caida' && fuente === 'bancos') {
+  return [{ json: { route: 'error', status: 503, payload: { error: 'servicio del banco no disponible (escenario caida)' } } }];
+}
+
 switch (fuente) {
   case 'monday':
     return [{ json: { route: 'json', fileName: 'monday_' + periodo + '.json', payload: d.monday } }];
@@ -46,7 +52,7 @@ switch (fuente) {
   case 'bancos':
     return [{ json: { route: 'csv', fileName: 'banco_estado_cuenta_' + periodo + '.csv', csv: toCsv(d.bancos) } }];
   default:
-    return [{ json: { route: 'error', status: 400, payload: { error: 'fuente inválida', fuentes: FUENTES } } }];
+    return [{ json: { route: 'error', status: 400, payload: { error: 'fuente inválida', fuentes: FUENTES, escenarios: ['normal', 'sucio', 'caida'] } } }];
 }
 `;
 
@@ -62,15 +68,15 @@ const rule = (key) => ({
   },
 });
 
-const code = `import { workflow, node, trigger, switchCase, newCredential, expr } from '@n8n/workflow-sdk';
+const code = `import { workflow, node, trigger, switchCase, expr } from '@n8n/workflow-sdk';
 
 const webhook = trigger({
   type: 'n8n-nodes-base.webhook',
   version: 2.1,
   config: {
     name: 'GET /treve-sim',
-    parameters: { httpMethod: 'GET', path: 'treve-sim', authentication: 'headerAuth', responseMode: 'responseNode', options: {} },
-    credentials: { httpHeaderAuth: newCredential('Treve Simulador Token') },
+    // Datos 100 % ficticios y deterministas (el generador es público en el repo): sin credencial
+    parameters: { httpMethod: 'GET', path: 'treve-sim', authentication: 'none', responseMode: 'responseNode', options: {} },
   },
 });
 
@@ -168,7 +174,7 @@ const responderError = node({
   version: 1.5,
   config: {
     name: 'Responder error',
-    parameters: { respondWith: 'json', responseBody: expr('{{ JSON.stringify($json.payload) }}'), options: { responseCode: 400 } },
+    parameters: { respondWith: 'json', responseBody: expr('{{ JSON.stringify($json.payload) }}'), options: { responseCode: expr('{{ $json.status }}') } },
   },
 });
 
@@ -184,4 +190,5 @@ export default workflow('treve-simulador-fuentes', 'Treve · Simulador de fuente
   );
 `;
 
-process.stdout.write(code);
+if (process.argv[2] === '--js') process.stdout.write(jsCode);
+else process.stdout.write(code);
