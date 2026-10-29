@@ -22,7 +22,8 @@ export function datosParaConclusiones(ind, detalle, hallazgos) {
   return {
     indicadores: ind,
     ventas_por_canal: detalle.ventas_ganadas?.por_canal?.slice(0, 5),
-    por_cobrar_por_cliente: detalle.por_cobrar?.por_cliente?.slice(0, 5),
+    clientes_con_saldo: (detalle.por_cobrar?.por_cliente || []).filter((c) => c.por_cobrar > 0).length,
+    por_cobrar_top5_clientes: detalle.por_cobrar?.por_cliente?.slice(0, 5),
     egresos_por_categoria: detalle.egresos_banco?.por_categoria,
     hallazgos: hallazgos.map((h) => ({ tipo: h.tipo, monto: h.monto, estado: h.estado, descripcion: h.descripcion })),
   };
