@@ -6,7 +6,7 @@ import { parseCsv, mapearColumnas, parseNumero, parseFecha, similitud } from '..
 import { calcularIndicadores, comoObjeto, diasHabiles } from '../../supabase/functions/treve/lib/indicadores.js';
 import { hojasReporte } from '../../supabase/functions/treve/lib/reporte.js';
 import { decidirPorReglas, interpretarJev, estadoPorAccion } from '../../supabase/functions/treve/lib/juicio.js';
-import { conclusionesPlantilla } from '../../supabase/functions/treve/lib/cerebro.js';
+import { conclusionesPlantilla, normalizarConclusiones } from '../../supabase/functions/treve/lib/cerebro.js';
 
 const periodos = [];
 for (let y = 2025; y <= 2027; y++) for (let m = 1; m <= 12; m++) periodos.push(`${y}-${String(m).padStart(2, '0')}`);
@@ -109,6 +109,12 @@ test('conclusiones de respaldo usan solo cifras calculadas', () => {
   const c = conclusionesPlantilla(comoObjeto(lista), detalle);
   assert.ok(c.financiero.includes('Flujo neto'));
   assert.ok(c.comercial.length > 20 && c.clientes.length > 20);
+});
+
+test('conclusiones de OpenAI: acepta texto u objetos anidados', () => {
+  const anidado = { financiero: { conclusion: 'A.', recomendacion: 'B.' }, comercial: 'C.', clientes: { conclusion: 'D.' } };
+  assert.deepEqual(normalizarConclusiones(anidado), { financiero: 'A. B.', comercial: 'C.', clientes: 'D.' });
+  assert.equal(normalizarConclusiones({ financiero: 'x' }), null);
 });
 
 test('días hábiles descuentan fines de semana y feriados', () => {

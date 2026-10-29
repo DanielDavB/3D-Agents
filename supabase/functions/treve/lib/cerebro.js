@@ -7,8 +7,16 @@ const pct = (n) => (n == null ? 's/d' : `${n.toFixed(1)} %`);
 export const PROMPT_CONCLUSIONES =
   'Eres el equipo de analistas de una oficina digital de finanzas. Recibes indicadores YA CALCULADOS por código y los hallazgos ' +
   'de conciliación. Escribe en español de México, tono ejecutivo y concreto. Usa SOLO las cifras del JSON (puedes redondearlas), ' +
-  'nunca inventes ni recalcules montos. Devuelve JSON con las claves "financiero", "comercial" y "clientes": cada una con 2 frases ' +
-  '(máx. 320 caracteres) con la conclusión principal y una recomendación accionable.';
+  'nunca inventes ni recalcules montos; escribe los montos en pesos con signo $ y separador de miles. ' +
+  'Devuelve JSON con las claves "financiero", "comercial" y "clientes"; el valor de cada una es UN SOLO TEXTO (string, no objeto) ' +
+  'de 2 frases (máx. 320 caracteres): la conclusión principal y una recomendación accionable.';
+
+// Acepta texto o un objeto {conclusion, recomendacion} (algunos modelos lo anidan) y devuelve texto
+export function normalizarConclusiones(data) {
+  const texto = (v) => (typeof v === 'string' ? v : v && typeof v === 'object' ? Object.values(v).filter((x) => typeof x === 'string').join(' ') : '');
+  const out = { financiero: texto(data?.financiero).trim(), comercial: texto(data?.comercial).trim(), clientes: texto(data?.clientes).trim() };
+  return out.financiero && out.comercial && out.clientes ? out : null;
+}
 
 export function datosParaConclusiones(ind, detalle, hallazgos) {
   return {

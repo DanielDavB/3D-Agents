@@ -16,7 +16,7 @@ import { asignarClientes, conciliar, evaluar } from './lib/conciliar.js';
 import { calcularIndicadores, comoObjeto, diasHabiles } from './lib/indicadores.js';
 import { hojasReporte } from './lib/reporte.js';
 import { decidirPorReglas, peticionJev, interpretarJev, estadoPorAccion } from './lib/juicio.js';
-import { PROMPT_CONCLUSIONES, PROMPT_MAPEO, datosParaConclusiones, conclusionesPlantilla, openaiJson, costoUsd } from './lib/cerebro.js';
+import { PROMPT_CONCLUSIONES, PROMPT_MAPEO, datosParaConclusiones, conclusionesPlantilla, normalizarConclusiones, openaiJson, costoUsd } from './lib/cerebro.js';
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void };
 type Row = Record<string, any>;
@@ -422,7 +422,8 @@ const AGENTES: Record<string, (c: Ctx) => Promise<Row>> = {
       try {
         const r = await openaiJson({ apiKey: OPENAI_KEY, model: OPENAI_MODEL, system: PROMPT_CONCLUSIONES, user: datosParaConclusiones(ind, detalle, hallazgos) });
         await sumarCosto(corrida, { usd: costoUsd(r.model, r.usage), tokens: r.usage.total_tokens || 0 });
-        if (r.data.financiero && r.data.comercial && r.data.clientes) (c = r.data), (motor = r.model);
+        const n = normalizarConclusiones(r.data);
+        if (n) (c = n), (motor = r.model);
         await ev('external', 'ag_orq', 'resultado', `Conclusiones redactadas (${r.usage.total_tokens || 0} tokens)`);
       } catch (e) {
         await ev('external', 'ag_orq', 'error', `OpenAI no respondió (${(e as Error).message}); uso plantillas`);
