@@ -122,5 +122,5 @@ ser necesario para el MVP; queda como opción si algún día un agente necesita 
 | 1 · Simulador de fuentes | Hecha: escenarios normal, sucio y caída activos en n8n |
 | 2 · Orquestador | Hecha y desplegada en Supabase: ciclo real con n8n, APIs públicas y alertas (6/6 discrepancias, 0 falsas alarmas) |
 | 3 · Visualizador | Hecha: 3D con eventos reales, validación humana, dashboard y 3 estilos (falta login con Google) |
-| 4 · Puesta en marcha | En curso: falta cargar las keys de OpenAI y JEV |
+| 4 · Puesta en marcha | Hecha: OpenAI (gpt-4o-mini) y JEV conectados; ~US$0.0003 de IA por ciclo |
 | 5 · Demo | Pendiente |
